@@ -21,11 +21,12 @@ const portable = index
   .replace(stylesheetMatch[0], () => `<style>\n${css}\n</style>`)
   .replace(scriptMatch[0], '')
   .replace('</body>', () => `${inlineScript}\n  </body>`)
-  .replace('<title>Grammar Canvas</title>', '<title>Grammar Canvas</title>\n    <meta name="grammar-canvas-build" content="portable-offline" />')
+  .replace('<title>GramLab · laboratorio de gramática</title>', '<title>GramLab · laboratorio de gramática</title>\n    <meta name="gramlab-build" content="portable-offline" />')
+  .replace(/^[ \t]+$/gm, '')
 
 if (/<(?:script|link)\b[^>]*(?:src|href)="\.\/assets\//.test(portable)) {
   throw new Error('The portable build still references an external asset.')
 }
 
-await writeFile(resolve(dist, 'grammar-canvas.html'), portable, 'utf8')
-console.log('Created dist/grammar-canvas.html - a standalone offline file.')
+await writeFile(resolve(dist, 'gramlab.html'), portable, 'utf8')
+console.log('Created dist/gramlab.html - a standalone offline file.')

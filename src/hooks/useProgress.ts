@@ -1,26 +1,32 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { ProgressRecord } from '../types'
+import type { LegacyProgressRecord, ProgressRecord } from '../types'
 
-const STORAGE_KEY = 'grammar-canvas-progress-v1'
+const STORAGE_KEY = 'gramlab-data-v2'
+const LEGACY_KEY = 'grammar-canvas-progress-v1'
 
-const emptyProgress = (): ProgressRecord => ({ version: 1, topics: {} })
+const emptyProgress = (): ProgressRecord => ({ version: 2, topics: {}, notes: {} })
+const isObject = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object'
+const isLegacy = (value: unknown): value is LegacyProgressRecord => isObject(value) && value.version === 1 && isObject(value.topics)
+const isCurrent = (value: unknown): value is ProgressRecord => isObject(value) && value.version === 2 && isObject(value.topics) && isObject(value.notes)
+const migrate = (value: LegacyProgressRecord): ProgressRecord => ({ version: 2, topics: value.topics, notes: {} })
 
 const readProgress = (): ProgressRecord => {
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY)
-    if (!saved) return emptyProgress()
-    const parsed = JSON.parse(saved) as ProgressRecord
-    if (parsed.version !== 1 || !parsed.topics || typeof parsed.topics !== 'object') return emptyProgress()
-    return parsed
+    if (saved) {
+      const parsed: unknown = JSON.parse(saved)
+      if (isCurrent(parsed)) return parsed
+      if (isLegacy(parsed)) return migrate(parsed)
+    }
+    const legacy = window.localStorage.getItem(LEGACY_KEY)
+    if (legacy) {
+      const parsed: unknown = JSON.parse(legacy)
+      if (isLegacy(parsed)) return migrate(parsed)
+    }
   } catch {
-    return emptyProgress()
+    // A corrupt value should never prevent GramLab from opening.
   }
-}
-
-const validRecord = (value: unknown): value is ProgressRecord => {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as ProgressRecord
-  return candidate.version === 1 && !!candidate.topics && typeof candidate.topics === 'object'
+  return emptyProgress()
 }
 
 export const useProgress = () => {
@@ -33,14 +39,13 @@ export const useProgress = () => {
   const recordAttempt = (topicId: string, correct: boolean) => {
     setProgress((current) => {
       const previous = current.topics[topicId] ?? { attempts: 0, correct: 0, completed: false }
-      const nextCorrect = previous.correct + (correct ? 1 : 0)
       return {
         ...current,
         topics: {
           ...current.topics,
           [topicId]: {
             attempts: previous.attempts + 1,
-            correct: nextCorrect,
+            correct: previous.correct + (correct ? 1 : 0),
             completed: previous.completed || correct,
             lastPracticedAt: new Date().toISOString(),
           },
@@ -49,29 +54,34 @@ export const useProgress = () => {
     })
   }
 
+  const saveNote = (topicId: string, text: string) => {
+    setProgress((current) => ({ ...current, notes: { ...current.notes, [topicId]: { text, updatedAt: new Date().toISOString() } } }))
+  }
+
   const resetProgress = () => setProgress(emptyProgress())
 
   const exportProgress = () => {
     const blob = new Blob([JSON.stringify(progress, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = 'grammar-canvas-progress.json'
-    link.click()
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = 'gramlab-backup.json'
+    anchor.click()
     URL.revokeObjectURL(url)
   }
 
   const importProgress = async (file: File) => {
-    const raw = await file.text()
-    const parsed: unknown = JSON.parse(raw)
-    if (!validRecord(parsed)) throw new Error('That file is not a Grammar Canvas progress backup.')
-    setProgress(parsed)
+    const parsed: unknown = JSON.parse(await file.text())
+    if (isCurrent(parsed)) setProgress(parsed)
+    else if (isLegacy(parsed)) setProgress(migrate(parsed))
+    else throw new Error('Este archivo no es un respaldo válido de GramLab o Grammar Canvas.')
   }
 
   const summary = useMemo(() => ({
     completed: Object.values(progress.topics).filter((topic) => topic.completed).length,
     attempts: Object.values(progress.topics).reduce((total, topic) => total + topic.attempts, 0),
+    notes: Object.values(progress.notes).filter((note) => note.text.trim()).length,
   }), [progress])
 
-  return { progress, recordAttempt, resetProgress, exportProgress, importProgress, summary }
+  return { progress, recordAttempt, saveNote, resetProgress, exportProgress, importProgress, summary }
 }

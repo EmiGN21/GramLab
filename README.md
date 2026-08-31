@@ -1,35 +1,33 @@
-# Grammar Canvas
+# GramLab
 
-Una plataforma personal de gramática inglesa para usar localmente y sin cuentas.
+Biblioteca visual y local de gramática inglesa. Está diseñada para consultar una duda en segundos, conectar conceptos como en Obsidian y conservar notas personales sin cuentas ni internet.
 
-## Abrirla
+## Abrir la versión portátil
 
-Haz doble clic en `Abrir Grammar Canvas.bat`. Abrirá en tu navegador la versión portátil `dist/grammar-canvas.html`.
+Haz doble clic en `Abrir GramLab.bat`. El lanzador abre `dist/gramlab.html`, un único archivo autocontenido que funciona sin servidor.
 
-Es un único archivo HTML autocontenido: no necesita servidor, instalación, internet ni una terminal. El progreso se guarda sólo en ese navegador y computadora.
-
-## Si necesitas volver a compilarla
+## Desarrollo
 
 Requiere Node.js 20 o posterior y pnpm.
 
 ```powershell
 pnpm install
+pnpm dev
 pnpm build
 ```
 
-El comando también vuelve a generar automáticamente la versión portátil.
-
-Para trabajar en modo de desarrollo:
-
-```powershell
-pnpm dev
-```
+`pnpm build` verifica TypeScript, compila la aplicación y genera de nuevo `dist/gramlab.html`.
 
 ## Qué incluye
 
-- Mapa visual de 12 tiempos verbales con A1–A2 disponible y B1–B2 señalizado.
-- Lecciones y tablas para estructuras fundamentales, pronombres, modales, cuantificadores, preposiciones, preguntas, `there is/are`, `have got`, `used to` y `ever/never`.
-- Ejercicios de elegir, ordenar y completar con corrección inmediata.
-- Progreso local con exportación e importación de respaldo desde la pantalla **Progress**.
+- Buscador local por títulos, alias, secciones, formas verbales y significados.
+- Rutas profundas como `#/topic/prepositions?section=at`.
+- Matriz completa de 12 tiempos verbales, sin contenido bloqueado.
+- Biblioteca por conceptos con fichas, tablas, contrastes, errores y conexiones inversas.
+- Diccionario de 100 verbos irregulares; `went` abre `go` y `written` abre `write`.
+- Leyenda visual de partes de la oración y modos claro/oscuro persistentes.
+- Una nota local por tema, ejercicios heredados y respaldo GramLab v2.
+- Migración automática e importación de respaldos Grammar Canvas v1.
+- Verificación interna de IDs, enlaces, secciones y referencias verbales.
 
-El contenido de las lecciones está centralizado en `src/data/grammar.ts`, para ampliarlo o corregirlo sin tocar la interfaz.
+El catálogo editorial vive en `src/data/catalog.ts`, los verbos en `src/data/verbs.ts` y la matriz privada del curso en `docs/course-coverage.md`. Los videos y enlaces del curso no forman parte de la interfaz.

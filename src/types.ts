@@ -2,6 +2,56 @@ export type Level = 'A1' | 'A2' | 'B1' | 'B2'
 
 export type TopicStatus = 'ready' | 'coming-soon'
 
+export type GrammarCategory =
+  | 'Tenses & time'
+  | 'Verbs & forms'
+  | 'Parts of speech'
+  | 'Pronouns & determiners'
+  | 'Prepositions & location'
+  | 'Questions & connectors'
+  | 'Quantity & comparison'
+  | 'Modals & functions'
+  | 'Everyday usage'
+
+export type WordRole = 'noun' | 'verb' | 'adjective' | 'adverb' | 'pronoun' | 'preposition' | 'auxiliary' | 'connector'
+
+export type TermLink = {
+  kind: 'topic' | 'verb'
+  targetId: string
+  sectionId?: string
+}
+
+export type ContentToken = {
+  text: string
+  role?: WordRole
+  link?: TermLink
+}
+
+export type RichExample = {
+  tokens: ContentToken[]
+  spanish: string
+  note?: string
+}
+
+export type ReferenceRow = {
+  key: string
+  meaning: string
+  example: string
+}
+
+export type ReferenceSection = {
+  id: string
+  title: string
+  quickAnswer: string
+  whenToUse?: string[]
+  pattern?: string
+  rows?: ReferenceRow[]
+  examples?: RichExample[]
+  contrasts?: string[]
+  mistakes?: string[]
+  links?: TermLink[]
+}
+
 export type Structure = {
   label: 'Affirmative' | 'Negative' | 'Question'
   formula: string
@@ -13,6 +63,7 @@ export type Example = {
   english: string
   spanish: string
   note?: string
+  tokens?: ContentToken[]
 }
 
 export type ChoiceExercise = {
@@ -57,6 +108,9 @@ export type GrammarTable = {
   notes: string[]
   relatedTopicIds: string[]
   exercise?: Exercise
+  aliases?: string[]
+  keywords?: string[]
+  sections?: ReferenceSection[]
 }
 
 export type GrammarTopic = {
@@ -64,7 +118,7 @@ export type GrammarTopic = {
   title: string
   shortTitle: string
   level: Level
-  category: 'Tense' | 'Building blocks' | 'Modals' | 'Questions & quantity'
+  category: string
   status: TopicStatus
   overview: string
   spanishOverview: string
@@ -74,6 +128,9 @@ export type GrammarTopic = {
   traps: string[]
   relatedTopicIds: string[]
   exercises: Exercise[]
+  aliases?: string[]
+  keywords?: string[]
+  sections?: ReferenceSection[]
 }
 
 export type LearningItem = GrammarTopic | GrammarTable
@@ -85,7 +142,38 @@ export type TopicProgress = {
   lastPracticedAt?: string
 }
 
-export type ProgressRecord = {
+export type LegacyProgressRecord = {
   version: 1
   topics: Record<string, TopicProgress>
+}
+
+export type TopicNote = {
+  text: string
+  updatedAt: string
+}
+
+export type ProgressRecord = {
+  version: 2
+  topics: Record<string, TopicProgress>
+  notes: Record<string, TopicNote>
+}
+
+export type VerbEntry = {
+  id: string
+  base: string
+  past: string
+  participle: string
+  meaning: string
+  examples: [string, string]
+  aliases?: string[]
+}
+
+export type SearchResult = {
+  id: string
+  kind: 'topic' | 'section' | 'verb'
+  title: string
+  subtitle: string
+  route: string
+  category: GrammarCategory
+  searchableText: string
 }

@@ -1,256 +1,225 @@
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { allItems, findItem, routeByLevel, tenseColumns, tenseGrid, tenseRows } from './data/grammar'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
+import { allItems, categoryMeta, findItem, relatedBacklinks, roleMeta, searchCatalog, tenseColumns, tenseGrid, tenseRows } from './data/catalog'
+import { contentIssues } from './data/integrity'
+import { irregularVerbs } from './data/verbs'
 import { useProgress } from './hooks/useProgress'
-import type { Exercise, GrammarTable, GrammarTopic, LearningItem } from './types'
+import { useTheme } from './hooks/useTheme'
+import type { ContentToken, Exercise, GrammarCategory, GrammarTable, GrammarTopic, LearningItem, ReferenceSection, SearchResult, TermLink } from './types'
 
+type Go = (route: string) => void
 type Feedback = { correct: boolean; message: string } | null
 
 const isTopic = (item: LearningItem): item is GrammarTopic => 'structures' in item
+const normalizeAnswer = (value: string) => value.trim().toLowerCase().replace(/[.!?]/g, '').replace(/\s+/g, ' ')
 
-const currentRoute = () => window.location.hash || '#/'
+const readRoute = () => {
+  const raw = (window.location.hash || '#/').slice(1)
+  const [path, query = ''] = raw.split('?')
+  return { hash: `#${raw}`, path, params: new URLSearchParams(query) }
+}
 
-const normalize = (value: string) => value.trim().toLowerCase().replace(/[.!?]/g, '').replace(/\s+/g, ' ')
+const routeForTerm = (term: TermLink) => term.kind === 'verb'
+  ? `#/verbs?verb=${encodeURIComponent(term.targetId)}`
+  : `#/topic/${term.targetId}${term.sectionId ? `?section=${encodeURIComponent(term.sectionId)}` : ''}`
 
-function ExercisePanel({ exercise, topicId, onAttempt }: { exercise: Exercise; topicId: string; onAttempt: (topicId: string, correct: boolean) => void }) {
+function SearchBox({ go, compact = false }: { go: Go; compact?: boolean }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const results = useMemo(() => searchCatalog(query), [query])
+  const choose = (result: SearchResult) => { setQuery(''); setOpen(false); go(result.route) }
+  const submit = (event: FormEvent) => { event.preventDefault(); if (results[0]) choose(results[0]) }
+
+  return <div className={`search-wrap ${compact ? 'compact' : ''}`}>
+    <form className="global-search" role="search" onSubmit={submit}>
+      <span aria-hidden="true">⌕</span>
+      <label className="sr-only" htmlFor={compact ? 'header-search' : 'hero-search'}>Buscar en GramLab</label>
+      <input id={compact ? 'header-search' : 'hero-search'} value={query} onFocus={() => setOpen(true)} onChange={(event) => { setQuery(event.target.value); setOpen(true) }} placeholder={compact ? 'Busca at, went, present continuous…' : 'Escribe una duda: at, written, some, pasado continuo…'} autoComplete="off" />
+      {query && <button type="button" className="clear-search" onClick={() => setQuery('')} aria-label="Limpiar búsqueda">×</button>}
+    </form>
+    {open && query && <div className="search-results" role="listbox">
+      {results.length ? results.map((result) => <button type="button" key={result.id} onClick={() => choose(result)} role="option">
+        <span className={`result-kind ${result.kind}`}>{result.kind === 'verb' ? 'verbo' : result.kind === 'section' ? 'sección' : 'ficha'}</span>
+        <span><strong>{result.title}</strong><small>{result.subtitle}</small></span>
+        <b aria-hidden="true">↗</b>
+      </button>) : <p>No encontré ese término. Prueba otra forma o significado.</p>}
+    </div>}
+  </div>
+}
+
+function RoleLegend() {
+  return <div className="role-legend" aria-label="Leyenda de categorías gramaticales">
+    {roleMeta.map((role) => <span className={`role-chip role-${role.id}`} key={role.id}><i aria-hidden="true" />{role.label}<small>{role.example}</small></span>)}
+  </div>
+}
+
+function RichSentence({ tokens, go }: { tokens: ContentToken[]; go: Go }) {
+  return <span className="rich-sentence">{tokens.map((entry, index) => {
+    const roleLabel = entry.role ? roleMeta.find((role) => role.id === entry.role)?.label : undefined
+    return entry.link
+      ? <button className={entry.role ? `word-token role-${entry.role}` : 'term-link'} title={roleLabel} aria-label={roleLabel ? `${entry.text}, ${roleLabel}; abrir referencia` : `Abrir ${entry.text}`} key={`${entry.text}-${index}`} onClick={() => go(routeForTerm(entry.link!))}>{entry.text}</button>
+      : <span className={entry.role ? `word-token role-${entry.role}` : undefined} title={roleLabel} aria-label={roleLabel ? `${entry.text}, ${roleLabel}` : undefined} key={`${entry.text}-${index}`}>{entry.text}</span>
+  })}</span>
+}
+
+function ExercisePanel({ exercise, topicId, onAttempt }: { exercise: Exercise; topicId: string; onAttempt: (id: string, correct: boolean) => void }) {
   const [selected, setSelected] = useState<number | null>(null)
   const [typed, setTyped] = useState('')
   const [wordOrder, setWordOrder] = useState<number[]>([])
   const [feedback, setFeedback] = useState<Feedback>(null)
+  useEffect(() => { setSelected(null); setTyped(''); setWordOrder([]); setFeedback(null) }, [exercise.id])
+  const submit = (correct: boolean) => { setFeedback({ correct, message: exercise.explanation }); onAttempt(topicId, correct) }
 
-  useEffect(() => {
-    setSelected(null)
-    setTyped('')
-    setWordOrder([])
-    setFeedback(null)
-  }, [exercise.id])
+  return <section className="practice-card">
+    <p className="eyebrow">Micropráctica</p><h3>{exercise.prompt}</h3>
+    {exercise.type === 'choice' && <div className="answer-stack">{exercise.options.map((option, index) => <button key={option} disabled={Boolean(feedback)} className={selected === index ? 'selected' : ''} onClick={() => { setSelected(index); submit(index === exercise.correctIndex) }}><span>{String.fromCharCode(65 + index)}</span>{option}</button>)}</div>}
+    {exercise.type === 'input' && <form className="input-row" onSubmit={(event) => { event.preventDefault(); if (typed.trim()) submit(exercise.acceptedAnswers.some((answer) => normalizeAnswer(answer) === normalizeAnswer(typed))) }}><input value={typed} onChange={(event) => setTyped(event.target.value)} placeholder={exercise.placeholder} disabled={Boolean(feedback)} /><button className="primary-button" disabled={!typed.trim() || Boolean(feedback)}>Comprobar</button></form>}
+    {exercise.type === 'order' && <div><div className="order-answer">{wordOrder.length ? wordOrder.map((index) => exercise.words[index]).join(' ') : 'Construye aquí la oración.'}</div><div className="word-bank">{exercise.words.map((word, index) => <button key={`${word}-${index}`} disabled={wordOrder.includes(index) || Boolean(feedback)} onClick={() => setWordOrder((current) => [...current, index])}>{word}</button>)}</div><div className="practice-actions"><button onClick={() => setWordOrder([])} disabled={!wordOrder.length || Boolean(feedback)}>Limpiar</button><button className="primary-button" onClick={() => submit(normalizeAnswer(wordOrder.map((index) => exercise.words[index]).join(' ')) === normalizeAnswer(exercise.answer))} disabled={!wordOrder.length || Boolean(feedback)}>Comprobar</button></div></div>}
+    {feedback && <p className={`feedback ${feedback.correct ? 'correct' : 'incorrect'}`} role="status"><strong>{feedback.correct ? 'Correcto.' : 'Casi.'}</strong> {feedback.message}</p>}
+  </section>
+}
 
-  const submit = (correct: boolean) => {
-    setFeedback({ correct, message: exercise.explanation })
-    onAttempt(topicId, correct)
-  }
+function TenseMatrix({ go }: { go: Go }) {
+  return <section className="panel tense-panel" aria-labelledby="tense-title">
+    <div className="section-heading"><div><p className="eyebrow">Mapa temporal</p><h2 id="tense-title">12 tiempos, una sola vista</h2></div><p>El nivel orienta; nunca bloquea contenido.</p></div>
+    <div className="table-scroll"><div className="tense-matrix" role="table" aria-label="Matriz de tiempos verbales">
+      <div className="matrix-corner" role="columnheader">Forma →<br />Tiempo ↓</div>
+      {tenseColumns.map((column) => <div role="columnheader" className={`matrix-time ${column.toLowerCase()}`} key={column}>{column}</div>)}
+      {tenseRows.flatMap((row) => [<div className="matrix-form" role="rowheader" key={`${row}-head`}>{row}</div>, ...tenseColumns.map((column) => {
+        const item = findItem(tenseGrid[`${column}-${row}`])!
+        return <button key={`${column}-${row}`} className="tense-cell" onClick={() => go(`#/topic/${item.id}`)}><span>{isTopic(item) ? item.shortTitle : item.title}</span><small>{item.level} · abrir</small></button>
+      })])}
+    </div></div>
+  </section>
+}
 
-  return (
-    <section className="practice-card" aria-labelledby={`practice-${exercise.id}`}>
-      <div className="section-eyebrow"><span>Practice</span><span className="mini-dot" aria-hidden="true" /></div>
-      <h3 id={`practice-${exercise.id}`}>Try the pattern</h3>
-      <p className="exercise-prompt">{exercise.prompt}</p>
-
-      {exercise.type === 'choice' && (
-        <div className="answer-stack" role="group" aria-label="Answer choices">
-          {exercise.options.map((option, index) => (
-            <button
-              className={`answer-option ${selected === index ? 'selected' : ''}`}
-              key={option}
-              disabled={feedback !== null}
-              onClick={() => { setSelected(index); submit(index === exercise.correctIndex) }}
-            >
-              <span className="answer-letter">{String.fromCharCode(65 + index)}</span>{option}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {exercise.type === 'input' && (
-        <form onSubmit={(event) => { event.preventDefault(); if (typed.trim()) submit(exercise.acceptedAnswers.some((answer) => normalize(answer) === normalize(typed))) }}>
-          <label className="sr-only" htmlFor={`input-${exercise.id}`}>Your answer</label>
-          <div className="input-row">
-            <input id={`input-${exercise.id}`} value={typed} disabled={feedback !== null} onChange={(event) => setTyped(event.target.value)} placeholder={exercise.placeholder} autoComplete="off" />
-            <button className="button button-dark" disabled={!typed.trim() || feedback !== null}>Check</button>
-          </div>
-        </form>
-      )}
-
-      {exercise.type === 'order' && (
-        <div>
-          <div className="order-answer" aria-live="polite">{wordOrder.length ? wordOrder.map((index) => exercise.words[index]).join(' ') : 'Build your sentence here.'}</div>
-          <div className="word-bank" aria-label="Word bank">
-            {exercise.words.map((word, index) => (
-              <button key={`${word}-${index}`} disabled={wordOrder.includes(index) || feedback !== null} onClick={() => setWordOrder((current) => [...current, index])}>{word}</button>
-            ))}
-          </div>
-          <div className="practice-actions">
-            <button className="text-button" onClick={() => setWordOrder([])} disabled={!wordOrder.length || feedback !== null}>Clear</button>
-            <button className="button button-dark" onClick={() => submit(normalize(wordOrder.map((index) => exercise.words[index]).join(' ')) === normalize(exercise.answer))} disabled={!wordOrder.length || feedback !== null}>Check</button>
-          </div>
-        </div>
-      )}
-
-      {feedback && <div className={`feedback ${feedback.correct ? 'correct' : 'incorrect'}`} role="status"><strong>{feedback.correct ? 'Nice work.' : 'Almost.'}</strong> {feedback.message}</div>}
+function Home({ go }: { go: Go }) {
+  const featured = ['prepositions', 'pronouns', 'verbs', 'question-words', 'to-for', 'present-perfect'].map(findItem).filter((item): item is LearningItem => Boolean(item))
+  const quick = [
+    { label: '¿Cuándo uso at?', route: '#/topic/prepositions?section=at' }, { label: 'went → go', route: '#/verbs?verb=go' },
+    { label: 'to o for', route: '#/topic/to-for' }, { label: 'present continuous', route: '#/topic/present-continuous' },
+  ]
+  return <main>
+    <section className="hero">
+      <div className="hero-copy"><p className="eyebrow"><span className="pulse-dot" />Laboratorio visual de gramática</p><h1>Encuentra la regla.<br /><em>Conecta la idea.</em></h1><p>Apuntes de consulta rápida para resolver una duda mientras escribes, hablas o estudias.</p><SearchBox go={go} /><div className="quick-queries">{quick.map((item) => <button key={item.label} onClick={() => go(item.route)}>{item.label}<span>↗</span></button>)}</div></div>
+      <aside className="lab-card"><div className="lab-card-top"><span>GRAM•LAB / 01</span><b>LOCAL</b></div><p>Una oración es un sistema:</p><div className="sentence-demo"><span className="role-pronoun">She<small>pronombre</small></span><span className="role-auxiliary">is<small>auxiliar</small></span><span className="role-verb">learning<small>verbo</small></span><span className="role-adverb">quickly<small>adverbio</small></span></div><small>Haz clic en los conceptos de las fichas para saltar entre ideas relacionadas.</small></aside>
     </section>
-  )
+    <RoleLegend />
+    <section className="category-section"><div className="section-heading"><div><p className="eyebrow">Índice por concepto</p><h2>Entra por la duda que tienes</h2></div><button className="text-link" onClick={() => go('#/library')}>Ver todas las fichas →</button></div><div className="category-grid">{categoryMeta.map((category) => <button key={category.id} onClick={() => go(`#/library?category=${encodeURIComponent(category.id)}`)}><span className="category-mark">{category.mark}</span><div><h3>{category.label}</h3><p>{category.description}</p><small>{allItems.filter((item) => item.category === category.id).length} fichas</small></div></button>)}</div></section>
+    <TenseMatrix go={go} />
+    <section className="featured-section"><div className="section-heading"><div><p className="eyebrow">Accesos de laboratorio</p><h2>Tablas que conviene tener a mano</h2></div></div><div className="topic-grid">{featured.map((item) => <TopicCard item={item} go={go} key={item.id} />)}</div></section>
+  </main>
 }
 
-function TenseGrid({ go }: { go: (route: string) => void }) {
-  return (
-    <section className="tense-section reveal" aria-labelledby="tense-map-title">
-      <div className="section-heading">
-        <div><p className="eyebrow">The grammar map</p><h2 id="tense-map-title">Find the time. Find the pattern.</h2></div>
-        <p>Click a card to study it. Cards with a dot are ready; outlined cards belong to your next stage.</p>
-      </div>
-      <div className="table-scroll">
-        <div className="tense-grid" role="table" aria-label="English tense map">
-          <div className="corner-cell" role="columnheader">Form →<br />Time ↓</div>
-          {tenseColumns.map((column) => <div className={`time-heading ${column.toLowerCase()}`} role="columnheader" key={column}>{column}</div>)}
-          {tenseRows.flatMap((row) => [
-            <div className="form-heading" role="rowheader" key={`${row}-heading`}>{row}</div>,
-            ...tenseColumns.map((column) => {
-              const item = findItem(tenseGrid[`${column}-${row}`])!
-              const available = item.status === 'ready'
-              return <button key={`${column}-${row}`} className={`tense-cell ${available ? 'available' : 'upcoming'}`} onClick={() => available && go(`#/topic/${item.id}`)} disabled={!available}>
-                <span className="cell-state" aria-label={available ? 'Ready to study' : 'Coming soon'}>{available ? '•' : '○'}</span>
-                <span>{isTopic(item) ? item.shortTitle : item.title}</span><small>{item.level}</small>
-              </button>
-            }),
-          ])}
-        </div>
-      </div>
-    </section>
-  )
+function TopicCard({ item, go }: { item: LearningItem; go: Go }) {
+  return <button className="topic-card" onClick={() => go(`#/topic/${item.id}`)}><div><span className="level-tag">{item.level}</span><span className="category-label">{item.category}</span></div><h3>{item.title}</h3><p>{item.spanishOverview}</p><span className="card-arrow">Abrir ficha ↗</span></button>
 }
 
-function ItemPill({ item, go }: { item: LearningItem; go: (route: string) => void }) {
-  const available = item.status === 'ready'
-  return <button className={`item-pill ${available ? '' : 'locked'}`} onClick={() => available && go(`#/topic/${item.id}`)} disabled={!available}>
-    <span>{item.title}</span><small>{available ? item.category : `${item.level} · coming soon`}</small>
-  </button>
+function Library({ go, selectedCategory }: { go: Go; selectedCategory?: string }) {
+  const [filter, setFilter] = useState(selectedCategory ?? 'Todas')
+  useEffect(() => setFilter(selectedCategory ?? 'Todas'), [selectedCategory])
+  const visible = filter === 'Todas' ? allItems : allItems.filter((item) => item.category === filter)
+  return <main className="page-shell"><section className="page-intro"><p className="eyebrow">Biblioteca de conceptos</p><h1>Todo GramLab, sin candados</h1><p>Las etiquetas A1–B2 sólo indican una dificultad aproximada. Puedes abrir cualquier ficha.</p></section><div className="filter-row"><button className={filter === 'Todas' ? 'active' : ''} onClick={() => setFilter('Todas')}>Todas <small>{allItems.length}</small></button>{categoryMeta.map((category) => <button className={filter === category.id ? 'active' : ''} onClick={() => setFilter(category.id)} key={category.id}>{category.label}<small>{allItems.filter((item) => item.category === category.id).length}</small></button>)}</div><div className="topic-grid library-grid">{visible.map((item) => <TopicCard item={item} go={go} key={item.id} />)}</div></main>
 }
 
-function Home({ go, completed }: { go: (route: string) => void; completed: number }) {
-  const tableItems = allItems.filter((item) => !isTopic(item))
-  return (
-    <>
-      <section className="hero" aria-labelledby="hero-title">
-        <div className="hero-copy">
-          <p className="eyebrow"><span className="hero-dot" />Personal grammar studio</p>
-          <h1 id="hero-title">Build the sentence.<br /><em>See the pattern.</em></h1>
-          <p className="hero-description">A calm, visual place to understand English grammar one clear pattern at a time.</p>
-          <div className="hero-actions"><button className="button button-dark" onClick={() => go('#/topic/present-simple')}>Start with Present Simple <span aria-hidden="true">→</span></button><button className="button button-light" onClick={() => document.getElementById('route')?.scrollIntoView({ behavior: 'smooth' })}>View my route</button></div>
-        </div>
-        <div className="hero-note" aria-label="Today’s study note">
-          <span className="paper-pin" aria-hidden="true" />
-          <p className="note-label">TODAY’S REMINDER</p>
-          <p>Every clear sentence starts with a pattern.</p>
-          <div className="note-rule"><span>Subject</span><i>+</i><span>verb</span><i>+</i><span>meaning</span></div>
-          <small>{completed ? `${completed} topic${completed === 1 ? '' : 's'} completed` : 'Your first topic is waiting'}</small>
-        </div>
-      </section>
-      <TenseGrid go={go} />
-      <section className="dashboard-grid" id="route">
-        <div className="route-card reveal">
-          <div className="section-heading compact"><div><p className="eyebrow">Study route</p><h2>One step at a time.</h2></div><p>Start at A1, return to the map whenever you need a quick answer.</p></div>
-          <div className="route-list">
-            {routeByLevel.map((stage) => <article className={`route-stage ${stage.level === 'B1' || stage.level === 'B2' ? 'future-stage' : ''}`} key={stage.level}>
-              <div className="route-level">{stage.level}</div>
-              <div><h3>{stage.title}</h3><p>{stage.description}</p><div className="pill-row">{stage.ids.map((id) => <ItemPill item={findItem(id)!} go={go} key={id} />)}</div></div>
-            </article>)}
-          </div>
-        </div>
-        <aside className="quick-card reveal">
-          <p className="eyebrow">Quick tables</p><h2>Need a fast answer?</h2>
-          <p className="quick-intro">Open a reference table without leaving your study path.</p>
-          <div className="quick-links">{tableItems.map((item) => <ItemPill item={item} go={go} key={item.id} />)}</div>
-          <div className="tip-box"><span aria-hidden="true">✦</span><p><strong>Study tip</strong>Say every example out loud once. Your mouth learns the pattern too.</p></div>
-        </aside>
-      </section>
-    </>
-  )
+function RelatedLinks({ item, go }: { item: LearningItem; go: Go }) {
+  const related = item.relatedTopicIds.map(findItem).filter((entry): entry is LearningItem => Boolean(entry))
+  const backlinks = relatedBacklinks(item.id).filter((entry) => entry.id !== item.id && !related.some((candidate) => candidate.id === entry.id))
+  if (!related.length && !backlinks.length) return null
+  return <section className="connections panel"><p className="eyebrow">Conexiones</p><h2>Términos relacionados</h2>{related.length > 0 && <div className="connection-row">{related.map((entry) => <button key={entry.id} onClick={() => go(`#/topic/${entry.id}`)}>{entry.title}<span>→</span></button>)}</div>}{backlinks.length > 0 && <><h3>También aparece en</h3><div className="connection-row secondary">{backlinks.map((entry) => <button key={entry.id} onClick={() => go(`#/topic/${entry.id}`)}>{entry.title}<span>↗</span></button>)}</div></>}</section>
 }
 
-function FormulaCard({ structure }: { structure: GrammarTopic['structures'][number] }) {
-  return <article className={`formula-card ${structure.label.toLowerCase()}`}>
-    <p>{structure.label}</p><div className="formula">{structure.formula}</div><small>{structure.translation}</small><blockquote>“{structure.example}”</blockquote>
+function ReferenceSectionCard({ entry, go }: { entry: ReferenceSection; go: Go }) {
+  return <article className="reference-section" id={`section-${entry.id}`}>
+    <div className="section-index">#{entry.id}</div><h2>{entry.title}</h2><p className="quick-answer"><strong>Respuesta rápida</strong>{entry.quickAnswer}</p>
+    {entry.whenToUse?.length ? <div className="mini-block"><h3>Cuándo se usa</h3><ul>{entry.whenToUse.map((use) => <li key={use}>{use}</li>)}</ul></div> : null}
+    {entry.pattern && <div className="pattern-box"><span>FORMA</span><code>{entry.pattern}</code></div>}
+    {entry.rows?.length ? <div className="reference-table-wrap"><table><thead><tr><th>Clave</th><th>Uso</th><th>Ejemplo</th></tr></thead><tbody>{entry.rows.map((row) => <tr key={`${row.key}-${row.example}`}><td>{row.key}</td><td>{row.meaning}</td><td>{row.example}</td></tr>)}</tbody></table></div> : null}
+    {entry.examples?.length ? <div className="rich-examples">{entry.examples.map((example, index) => <div key={`${entry.id}-${index}`}><RichSentence tokens={example.tokens} go={go} /><small>{example.spanish}</small>{example.note && <em>{example.note}</em>}</div>)}</div> : null}
+    {(entry.contrasts?.length || entry.mistakes?.length) ? <div className="contrast-grid">{entry.contrasts?.length ? <div><h3>Contrasta</h3>{entry.contrasts.map((text) => <p key={text}>{text}</p>)}</div> : null}{entry.mistakes?.length ? <div className="warning-box"><h3>Error común</h3>{entry.mistakes.map((text) => <p key={text}>{text}</p>)}</div> : null}</div> : null}
+    {entry.links?.length ? <div className="inline-links"><span>Conecta con</span>{entry.links.map((term) => {
+      const targetItem = term.kind === 'topic' ? findItem(term.targetId) : undefined
+      const target = term.kind === 'verb'
+        ? irregularVerbs.find((verb) => verb.id === term.targetId)?.base
+        : term.sectionId
+          ? targetItem?.sections?.find((candidate) => candidate.id === term.sectionId)?.title
+          : targetItem?.title
+      return <button key={`${term.kind}-${term.targetId}-${term.sectionId ?? ''}`} onClick={() => go(routeForTerm(term))}>{target ?? term.targetId} ↗</button>
+    })}</div> : null}
   </article>
 }
 
-function TopicPage({ item, go, onAttempt }: { item: LearningItem; go: (route: string) => void; onAttempt: (topicId: string, correct: boolean) => void }) {
+function TopicPage({ item, sectionId, go, note, saveNote, onAttempt }: { item: LearningItem; sectionId?: string; go: Go; note: string; saveNote: (id: string, text: string) => void; onAttempt: (id: string, correct: boolean) => void }) {
   const [showSpanish, setShowSpanish] = useState(true)
-  const related = item.relatedTopicIds.map(findItem).filter((relatedItem): relatedItem is LearningItem => Boolean(relatedItem))
-  const available = item.status === 'ready'
-
-  if (!available) return <main className="lesson-shell coming-page"><button className="back-link" onClick={() => go('#/')}><span aria-hidden="true">←</span> Back to the map</button><p className="eyebrow">{item.level} · next stage</p><h1>{item.title}</h1><p>{item.overview}</p><div className="coming-stamp">Coming soon</div></main>
+  const [noteValue, setNoteValue] = useState(note)
+  useEffect(() => setNoteValue(note), [item.id, note])
+  useEffect(() => {
+    if (!sectionId) { window.scrollTo({ top: 0, behavior: 'auto' }); return }
+    window.setTimeout(() => document.getElementById(`section-${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+  }, [item.id, sectionId])
+  useEffect(() => { const timeout = window.setTimeout(() => { if (noteValue !== note) saveNote(item.id, noteValue) }, 450); return () => window.clearTimeout(timeout) }, [item.id, note, noteValue, saveNote])
 
   const topic = isTopic(item) ? item : null
   const table = !topic ? item as GrammarTable : null
   const exercises = topic?.exercises ?? (table?.exercise ? [table.exercise] : [])
-  return <main className="lesson-shell">
-    <button className="back-link" onClick={() => go('#/')}><span aria-hidden="true">←</span> Back to the map</button>
-    <section className="lesson-intro">
-      <div><p className="eyebrow">{item.level} · {item.category}</p><h1>{item.title}</h1><p>{item.overview}</p>{showSpanish && <p className="spanish-help">{item.spanishOverview}</p>}</div>
-      <button className={`language-toggle ${showSpanish ? 'active' : ''}`} onClick={() => setShowSpanish((value) => !value)} aria-pressed={showSpanish}><span aria-hidden="true">ES</span> Spanish help: {showSpanish ? 'on' : 'off'}</button>
-    </section>
 
-    {topic ? <>
-      <section className="use-section"><div className="section-heading compact"><div><p className="eyebrow">When to use it</p><h2>Think of this pattern when…</h2></div></div><ul className="use-list">{topic.uses.map((use) => <li key={use}><span aria-hidden="true">✓</span>{use}</li>)}</ul></section>
-      <section className="structure-section"><div className="section-heading compact"><div><p className="eyebrow">The structure</p><h2>Build it with care.</h2></div><p className="color-key"><span className="key-subject">Subject</span><span className="key-aux">helper</span><span className="key-verb">main verb</span></p></div><div className="formula-grid">{topic.structures.map((structure) => <FormulaCard structure={structure} key={structure.label} />)}</div></section>
-      <section className="examples-section"><div className="section-heading compact"><div><p className="eyebrow">Examples</p><h2>See it in real sentences.</h2></div></div><div className="example-list">{topic.examples.map((example) => <article className="example-card" key={example.english}><p>{example.english}</p>{showSpanish && <small>{example.spanish}</small>}{example.note && <em>{example.note}</em>}</article>)}</div></section>
-      <section className="traps-section"><p className="eyebrow">Watch out</p><h2>Common traps</h2><ul>{topic.traps.map((trap) => <li key={trap}><span aria-hidden="true">!</span>{trap}</li>)}</ul></section>
-    </> : table && <>
-      <section className="reference-table-section"><div className="section-heading compact"><div><p className="eyebrow">Reference table</p><h2>{table.subtitle}</h2></div></div><div className="reference-table-wrap"><table><thead><tr><th>Key</th><th>Meaning / form</th><th>Example</th></tr></thead><tbody>{table.rows.map((row) => <tr key={row.left}><td>{row.left}</td><td>{row.middle}</td><td>{row.right}</td></tr>)}</tbody></table></div></section>
-      <section className="traps-section"><p className="eyebrow">Remember</p><h2>Quick notes</h2><ul>{table.notes.map((note) => <li key={note}><span aria-hidden="true">!</span>{note}</li>)}</ul></section>
+  return <main className="page-shell topic-page">
+    <button className="back-button" onClick={() => go('#/library')}>← Biblioteca</button>
+    <section className="topic-hero"><div><div className="topic-meta"><span className="level-tag">{item.level}</span><span>{item.category}</span></div><h1>{item.title}</h1><p>{item.overview}</p>{showSpanish && <p className="spanish-overview">{item.spanishOverview}</p>}</div><button className={`language-toggle ${showSpanish ? 'active' : ''}`} onClick={() => setShowSpanish((value) => !value)} aria-pressed={showSpanish}><span>ES</span> Ayuda en español {showSpanish ? 'activada' : 'oculta'}</button></section>
+    <RoleLegend />
+    {topic && <>
+      <section className="panel"><p className="eyebrow">Cuándo se usa</p><div className="use-grid">{topic.uses.map((use, index) => <div key={use}><span>{String(index + 1).padStart(2, '0')}</span><p>{use}</p></div>)}</div></section>
+      <section className="formula-grid">{topic.structures.map((structure) => <article key={structure.label} className="formula-card"><span>{structure.label}</span><code>{structure.formula}</code><p>{structure.translation}</p><blockquote>{structure.example}</blockquote></article>)}</section>
+      <section className="panel"><p className="eyebrow">Ejemplos</p><div className="example-grid">{topic.examples.map((example) => <article key={example.english}>{example.tokens ? <RichSentence tokens={example.tokens} go={go} /> : <strong>{example.english}</strong>}{showSpanish && <small>{example.spanish}</small>}{example.note && <em>{example.note}</em>}</article>)}</div></section>
+      {topic.traps.length > 0 && <section className="warning-panel"><p className="eyebrow">Errores comunes</p>{topic.traps.map((trap) => <p key={trap}><span>!</span>{trap}</p>)}</section>}
     </>}
-
-    <div className="practice-grid">{exercises.map((exercise) => <ExercisePanel exercise={exercise} topicId={item.id} onAttempt={onAttempt} key={exercise.id} />)}</div>
-    <section className="related-section"><p className="eyebrow">Connect the dots</p><h2>Study next</h2><div className="related-links">{related.map((relatedItem) => <ItemPill key={relatedItem.id} item={relatedItem} go={go} />)}</div></section>
+    {table && <><section className="panel"><p className="eyebrow">Tabla rápida</p><h2>{table.subtitle}</h2><div className="reference-table-wrap"><table><thead><tr><th>Clave</th><th>Significado o forma</th><th>Ejemplo</th></tr></thead><tbody>{table.rows.map((row) => <tr key={`${row.left}-${row.middle}`}><td>{row.left}</td><td>{row.middle}</td><td>{row.right}</td></tr>)}</tbody></table></div></section>{table.notes.length > 0 && <section className="warning-panel"><p className="eyebrow">Recuerda</p>{table.notes.map((entry) => <p key={entry}><span>!</span>{entry}</p>)}</section>}</>}
+    {(item.sections ?? []).length > 0 && <section className="deep-sections"><div className="section-heading"><div><p className="eyebrow">Secciones enlazables</p><h2>Ve directo al detalle</h2></div><div className="anchor-list">{item.sections!.map((entry) => <button onClick={() => go(`#/topic/${item.id}?section=${entry.id}`)} key={entry.id}>#{entry.id}</button>)}</div></div>{item.sections!.map((entry) => <ReferenceSectionCard entry={entry} go={go} key={entry.id} />)}</section>}
+    {exercises.length > 0 && <div className="practice-grid">{exercises.map((exercise) => <ExercisePanel key={exercise.id} exercise={exercise} topicId={item.id} onAttempt={onAttempt} />)}</div>}
+    <section className="note-panel panel"><div><p className="eyebrow">Mi nota local</p><h2>Escribe lo que quieres recordar</h2><p>Se guarda automáticamente sólo en este navegador.</p></div><label className="sr-only" htmlFor="topic-note">Nota personal sobre {item.title}</label><textarea id="topic-note" value={noteValue} onChange={(event) => setNoteValue(event.target.value)} placeholder="Ejemplo: at = un punto; in = dentro de algo…" rows={6} /><small>{noteValue === note ? 'Guardado localmente' : 'Guardando…'}</small></section>
+    <RelatedLinks item={item} go={go} />
   </main>
 }
 
-function ProgressPage({ go, completed, attempts, exportProgress, importProgress, resetProgress }: { go: (route: string) => void; completed: number; attempts: number; exportProgress: () => void; importProgress: (file: File) => Promise<void>; resetProgress: () => void }) {
-  const inputRef = useRef<HTMLInputElement>(null)
+function VerbDictionary({ selectedId, go }: { selectedId?: string; go: Go }) {
+  const [query, setQuery] = useState('')
+  const selectedRef = useRef<HTMLDivElement>(null)
+  useEffect(() => { if (selectedId) window.setTimeout(() => selectedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80) }, [selectedId])
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase()
+    if (!needle) return irregularVerbs
+    return irregularVerbs.filter((entry) => [entry.base, entry.past, entry.participle, entry.meaning, ...entry.examples].join(' ').toLowerCase().includes(needle))
+  }, [query])
+  return <main className="page-shell"><section className="page-intro verb-intro"><p className="eyebrow">Diccionario conectado</p><h1>100 verbos irregulares esenciales</h1><p>Busca por infinitivo, pasado, participio o significado. <button className="inline-demo" onClick={() => go('#/verbs?verb=go')}>went</button> abre <strong>go</strong>; <button className="inline-demo" onClick={() => go('#/verbs?verb=write')}>written</button> abre <strong>write</strong>.</p><div className="verb-search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Busca go, went, written, escribir…" /></div></section><div className="verb-count">{filtered.length} de {irregularVerbs.length} verbos</div><section className="verb-list">{filtered.map((entry) => <div className={`verb-row ${selectedId === entry.id ? 'selected-verb' : ''}`} ref={selectedId === entry.id ? selectedRef : undefined} key={entry.id} id={`verb-${entry.id}`}><div className="verb-base"><span>BASE</span><strong>{entry.base}</strong><small>{entry.meaning}</small></div><div><span>PAST</span><strong>{entry.past}</strong></div><div><span>PARTICIPLE</span><strong>{entry.participle}</strong></div><div className="verb-examples"><p>{entry.examples[0]}</p><p>{entry.examples[1]}</p></div><button title="Enlace directo" onClick={() => go(`#/verbs?verb=${entry.id}`)}>#</button></div>)}</section>{!filtered.length && <div className="empty-state">No encontré esa forma verbal.</div>}</main>
+}
+
+function DataPage({ completed, attempts, noteCount, exportProgress, importProgress, resetProgress }: { completed: number; attempts: number; noteCount: number; exportProgress: () => void; importProgress: (file: File) => Promise<void>; resetProgress: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
-  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    try { await importProgress(file); setMessage('Progress restored successfully.') } catch (error) { setMessage(error instanceof Error ? error.message : 'Could not restore this file.') }
-    event.target.value = ''
-  }
-  return <main className="progress-page lesson-shell">
-    <button className="back-link" onClick={() => go('#/')}><span aria-hidden="true">←</span> Back to the map</button>
-    <section className="progress-hero"><p className="eyebrow">Your study space</p><h1>Your progress stays with you.</h1><p>Everything is stored only in this browser on this computer.</p><div className="progress-numbers"><div><strong>{completed}</strong><span>topics completed</span></div><div><strong>{attempts}</strong><span>practice attempts</span></div><div><strong>{allItems.filter((item) => item.status === 'ready').length}</strong><span>ready topics</span></div></div></section>
-    <section className="backup-card"><p className="eyebrow">Backup</p><h2>Keep a copy of your work.</h2><p>Download your progress as a small JSON file and use it to restore your study history later.</p><div className="backup-actions"><button className="button button-dark" onClick={exportProgress}>Export progress</button><button className="button button-light" onClick={() => inputRef.current?.click()}>Import progress</button><input ref={inputRef} type="file" accept="application/json,.json" onChange={handleImport} hidden /></div>{message && <p className="import-message" role="status">{message}</p>}</section>
-    <section className="reset-card"><h2>Start over</h2><p>This removes your local practice history from this browser. Export it first if you might want it later.</p><button className="text-button danger" onClick={() => { if (window.confirm('Reset all Grammar Canvas progress on this browser?')) resetProgress() }}>Reset local progress</button></section>
-  </main>
+  const handleImport = async (event: ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; try { await importProgress(file); setMessage('Respaldo importado correctamente.') } catch (error) { setMessage(error instanceof Error ? error.message : 'No se pudo importar.') } event.target.value = '' }
+  return <main className="page-shell"><section className="page-intro"><p className="eyebrow">Datos locales</p><h1>Tu laboratorio vive en este navegador</h1><p>Sin cuenta, nube ni servicios externos. Tus prácticas y notas pueden viajar en un respaldo JSON.</p></section><section className="stats-grid"><div><strong>{allItems.length}</strong><span>fichas disponibles</span></div><div><strong>{completed}</strong><span>temas practicados</span></div><div><strong>{attempts}</strong><span>intentos</span></div><div><strong>{noteCount}</strong><span>notas personales</span></div></section><section className="panel backup-panel"><div><p className="eyebrow">Respaldo GramLab v2</p><h2>Exporta o restaura todo</h2><p>También acepta respaldos v1 de Grammar Canvas y conserva intentos y temas completados.</p></div><div><button className="primary-button" onClick={exportProgress}>Exportar respaldo</button><button className="secondary-button" onClick={() => fileRef.current?.click()}>Importar respaldo</button><input hidden ref={fileRef} type="file" accept=".json,application/json" onChange={handleImport} />{message && <p role="status" className="import-message">{message}</p>}</div></section><section className="panel integrity-panel"><div><p className="eyebrow">Integridad del contenido</p><h2>{contentIssues.length ? `${contentIssues.length} avisos por revisar` : 'Índice verificado'}</h2><p>{contentIssues.length ? 'La aplicación encontró referencias editoriales pendientes.' : 'Sin IDs duplicados, enlaces rotos, secciones inexistentes ni referencias verbales faltantes.'}</p></div><span className={contentIssues.length ? 'status-warn' : 'status-ok'}>{contentIssues.length ? 'REVISAR' : 'OK'}</span>{contentIssues.length > 0 && <ul>{contentIssues.map((issue) => <li key={`${issue.type}-${issue.detail}`}>{issue.detail}</li>)}</ul>}</section><section className="danger-zone"><h2>Reiniciar datos locales</h2><p>Borra prácticas y notas de GramLab en este navegador. El modo de color se conserva.</p><button onClick={() => { if (window.confirm('¿Borrar prácticas y notas locales de GramLab?')) resetProgress() }}>Borrar prácticas y notas</button></section></main>
 }
+
+function NotFound({ go }: { go: Go }) { return <main className="page-shell empty-state"><p className="eyebrow">404</p><h1>Esa ficha no existe</h1><button className="primary-button" onClick={() => go('#/')}>Volver al laboratorio</button></main> }
 
 function App() {
-  const [route, setRoute] = useState(currentRoute)
-  const { progress, recordAttempt, resetProgress, exportProgress, importProgress, summary } = useProgress()
-  const readyCount = allItems.filter((item) => item.status === 'ready').length
-  const currentItem = useMemo(() => route.startsWith('#/topic/') ? findItem(route.replace('#/topic/', '')) : undefined, [route])
+  const [route, setRoute] = useState(readRoute)
+  const { theme, toggleTheme } = useTheme()
+  const { progress, recordAttempt, saveNote, resetProgress, exportProgress, importProgress, summary } = useProgress()
+  useEffect(() => { const update = () => setRoute(readRoute()); window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update) }, [])
+  const go: Go = (next) => { if (window.location.hash === next) setRoute(readRoute()); else window.location.hash = next }
+  const topicId = route.path.startsWith('/topic/') ? decodeURIComponent(route.path.replace('/topic/', '')) : undefined
+  const item = topicId ? findItem(topicId) : undefined
 
-  useEffect(() => {
-    const updateRoute = () => { setRoute(currentRoute()); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-    window.addEventListener('hashchange', updateRoute)
-    return () => window.removeEventListener('hashchange', updateRoute)
-  }, [])
+  let content
+  if (route.path === '/') content = <Home go={go} />
+  else if (route.path === '/library') content = <Library go={go} selectedCategory={route.params.get('category') ?? undefined} />
+  else if (route.path === '/verbs') content = <VerbDictionary selectedId={route.params.get('verb') ?? undefined} go={go} />
+  else if (route.path === '/data') content = <DataPage completed={summary.completed} attempts={summary.attempts} noteCount={summary.notes} exportProgress={exportProgress} importProgress={importProgress} resetProgress={resetProgress} />
+  else if (item) content = <TopicPage item={item} sectionId={route.params.get('section') ?? undefined} go={go} note={progress.notes[item.id]?.text ?? ''} saveNote={saveNote} onAttempt={recordAttempt} />
+  else content = <NotFound go={go} />
 
-  useEffect(() => {
-    const elements = Array.from(document.querySelectorAll<HTMLElement>('.reveal'))
-    if (!('IntersectionObserver' in window)) {
-      elements.forEach((element) => element.classList.add('is-visible'))
-      return undefined
-    }
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('is-visible')
-          observer.unobserve(entry.target)
-        }
-      })
-    }, { threshold: 0.12 })
-    elements.forEach((element) => observer.observe(element))
-    return () => observer.disconnect()
-  }, [route])
-
-  const go = (nextRoute: string) => {
-    if (window.location.hash === nextRoute) { setRoute(nextRoute); window.scrollTo({ top: 0, behavior: 'smooth' }) }
-    else window.location.hash = nextRoute
-  }
-
-  return <div className="app-shell">
-    <header className="site-header"><button className="brand" onClick={() => go('#/')} aria-label="Go to Grammar Canvas home"><span className="brand-mark" aria-hidden="true">G</span><span>Grammar <b>Canvas</b></span></button><nav aria-label="Main navigation"><button className={route === '#/' ? 'active' : ''} onClick={() => go('#/')}>Map</button><button onClick={() => { go('#/'); window.setTimeout(() => document.getElementById('route')?.scrollIntoView({ behavior: 'smooth' }), 80) }}>Route</button><button className={route === '#/progress' ? 'active' : ''} onClick={() => go('#/progress')}>Progress <span className="nav-count">{summary.completed}/{readyCount}</span></button></nav></header>
-    {route === '#/progress' ? <ProgressPage go={go} completed={summary.completed} attempts={summary.attempts} exportProgress={exportProgress} importProgress={importProgress} resetProgress={resetProgress} /> : currentItem ? <TopicPage item={currentItem} go={go} onAttempt={recordAttempt} /> : <main><Home go={go} completed={summary.completed} /></main>}
-    <footer><span>Grammar Canvas · built for calm, consistent practice.</span><span>Offline · American English</span></footer>
-  </div>
+  return <div className="app-shell"><header className="site-header"><button className="brand" onClick={() => go('#/')} aria-label="Ir al inicio de GramLab"><span className="brand-mark">G<span>L</span></span><span><strong>GramLab</strong><small>laboratorio de gramática</small></span></button><SearchBox go={go} compact /><nav aria-label="Navegación principal"><button className={route.path === '/' ? 'active' : ''} onClick={() => go('#/')}>Laboratorio</button><button className={route.path === '/library' ? 'active' : ''} onClick={() => go('#/library')}>Índice</button><button className={route.path === '/verbs' ? 'active' : ''} onClick={() => go('#/verbs')}>Verbos</button><button className={route.path === '/data' ? 'active' : ''} onClick={() => go('#/data')}>Datos</button></nav><button className="theme-toggle" onClick={toggleTheme} aria-label={`Cambiar a modo ${theme === 'light' ? 'oscuro' : 'claro'}`} title={`Modo ${theme === 'light' ? 'oscuro' : 'claro'}`}><span aria-hidden="true">{theme === 'light' ? '◐' : '☀'}</span></button></header>{content}<footer><span><strong>GramLab</strong> · consulta visual y local</span><span>{allItems.length} fichas · {irregularVerbs.length} verbos · offline</span></footer></div>
 }
 
 export default App
