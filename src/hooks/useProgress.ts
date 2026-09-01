@@ -74,7 +74,7 @@ export const useProgress = () => {
     const parsed: unknown = JSON.parse(await file.text())
     if (isCurrent(parsed)) setProgress(parsed)
     else if (isLegacy(parsed)) setProgress(migrate(parsed))
-    else throw new Error('Este archivo no es un respaldo válido de GramLab o Grammar Canvas.')
+    else throw new Error('This file is not a valid GramLab or Grammar Canvas backup.')
   }
 
   const summary = useMemo(() => ({

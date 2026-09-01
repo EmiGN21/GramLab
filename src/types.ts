@@ -37,18 +37,25 @@ export type ReferenceRow = {
   key: string
   meaning: string
   example: string
+  spanishMeaning?: string
+  spanishExample?: string
 }
 
 export type ReferenceSection = {
   id: string
   title: string
   quickAnswer: string
+  spanishTitle?: string
+  spanishQuickAnswer?: string
   whenToUse?: string[]
+  spanishWhenToUse?: string[]
   pattern?: string
   rows?: ReferenceRow[]
   examples?: RichExample[]
   contrasts?: string[]
+  spanishContrasts?: string[]
   mistakes?: string[]
+  spanishMistakes?: string[]
   links?: TermLink[]
 }
 
@@ -104,7 +111,7 @@ export type GrammarTable = {
   status: TopicStatus
   overview: string
   spanishOverview: string
-  rows: Array<{ left: string; middle: string; right?: string }>
+  rows: Array<{ left: string; middle: string; right?: string; spanishLeft?: string; spanishMiddle?: string; spanishRight?: string }>
   notes: string[]
   relatedTopicIds: string[]
   exercise?: Exercise

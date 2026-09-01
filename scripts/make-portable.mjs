@@ -21,7 +21,7 @@ const portable = index
   .replace(stylesheetMatch[0], () => `<style>\n${css}\n</style>`)
   .replace(scriptMatch[0], '')
   .replace('</body>', () => `${inlineScript}\n  </body>`)
-  .replace('<title>GramLab · laboratorio de gramática</title>', '<title>GramLab · laboratorio de gramática</title>\n    <meta name="gramlab-build" content="portable-offline" />')
+  .replace('<title>GramLab · visual grammar laboratory</title>', '<title>GramLab · visual grammar laboratory</title>\n    <meta name="gramlab-build" content="portable-offline" />')
   .replace(/^[ \t]+$/gm, '')
 
 if (/<(?:script|link)\b[^>]*(?:src|href)="\.\/assets\//.test(portable)) {
