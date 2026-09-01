@@ -98,18 +98,32 @@ function TenseMatrix({ go }: { go: Go }) {
 }
 
 function Home({ go }: { go: Go }) {
-  const featured = ['prepositions', 'pronouns', 'verbs', 'question-words', 'to-for', 'present-perfect'].map(findItem).filter((item): item is LearningItem => Boolean(item))
+  const featured = ['prepositions', 'pronouns', 'verbs', 'present-perfect'].map(findItem).filter((item): item is LearningItem => Boolean(item))
   const quick = [
     { label: 'When do I use at?', route: '#/topic/prepositions?section=at' }, { label: 'went → go', route: '#/verbs?verb=go' },
     { label: 'to or for', route: '#/topic/to-for' }, { label: 'present continuous', route: '#/topic/present-continuous' },
   ]
-  return <main>
+  return <main className="editorial-home">
     <section className="hero">
-      <div className="hero-copy"><p className="eyebrow"><span className="pulse-dot" />Visual grammar laboratory</p><h1>Find the rule.<br /><em>Connect the idea.</em></h1><SpanishHint>Encuentra la regla. Conecta la idea.</SpanishHint><p>Quick-reference notes for solving a question while you write, speak, or study.<SpanishHint>Apuntes de consulta rápida para resolver una duda mientras escribes, hablas o estudias.</SpanishHint></p><SearchBox go={go} /><div className="quick-queries">{quick.map((item) => <button key={item.label} onClick={() => go(item.route)}>{item.label}<span>↗</span></button>)}</div></div>
-      <aside className="lab-card"><div className="lab-card-top"><span>GRAM•LAB / 01</span><b>LOCAL</b></div><p>A sentence is a system:<SpanishHint>Una oración es un sistema.</SpanishHint></p><div className="sentence-demo"><span className="role-pronoun">She<small>pronoun</small></span><span className="role-auxiliary">is<small>auxiliary</small></span><span className="role-verb">learning<small>verb</small></span><span className="role-adverb">quickly<small>adverb</small></span></div><small>Click a concept inside a note to move between related ideas.<SpanishHint>Haz clic en un concepto para saltar entre ideas relacionadas.</SpanishHint></small></aside>
+      <div className="hero-copy">
+        <p className="eyebrow">A visual grammar atlas</p>
+        <h1>English,<br /><em>mapped.</em></h1>
+        <SpanishHint>El inglés, trazado como un mapa.</SpanishHint>
+        <p>Find the rule you need, then follow its connections through the language.<SpanishHint>Encuentra la regla que necesitas y sigue sus conexiones a través del idioma.</SpanishHint></p>
+        <SearchBox go={go} />
+        <div className="quick-queries">{quick.map((item) => <button key={item.label} onClick={() => go(item.route)}>{item.label}<span>↗</span></button>)}</div>
+      </div>
+      <aside className="atlas-specimen" aria-label="Preposition reference specimen">
+        <div className="specimen-meta"><span>REFERENCE / PREPOSITION</span><span>A1</span></div>
+        <button className="specimen-word" onClick={() => go('#/topic/prepositions?section=at')}>at</button>
+        <p>A precise point in time or place.</p>
+        <SpanishHint>Un punto preciso en el tiempo o el espacio.</SpanishHint>
+        <div className="specimen-links"><button onClick={() => go('#/topic/prepositions?section=in')}>in <span>inside</span></button><button onClick={() => go('#/topic/prepositions?section=on')}>on <span>surface</span></button></div>
+        <small>Each term is an entrance to a connected note.</small>
+      </aside>
     </section>
     <RoleLegend />
-    <section className="category-section"><div className="section-heading"><div><p className="eyebrow">Concept index</p><h2>Start with the question you have</h2><SpanishHint>Entra por la duda que tienes</SpanishHint></div><button className="text-link" onClick={() => go('#/library')}>View every note →</button></div><div className="category-grid">{categoryMeta.map((category) => <button key={category.id} onClick={() => go(`#/library?category=${encodeURIComponent(category.id)}`)}><span className="category-mark">{category.mark}</span><div><h3>{category.label}</h3><SpanishHint>{category.spanishLabel}</SpanishHint><p>{category.description}<SpanishHint>{category.spanishDescription}</SpanishHint></p><small>{allItems.filter((item) => item.category === category.id).length} notes</small></div></button>)}</div></section>
+    <section className="category-section"><div className="section-heading"><div><p className="eyebrow">Concept index</p><h2>Enter through the question you have.</h2><SpanishHint>Entra por la duda que tienes.</SpanishHint></div><button className="text-link" onClick={() => go('#/library')}>View every note →</button></div><div className="category-grid">{categoryMeta.map((category, index) => <button key={category.id} onClick={() => go(`#/library?category=${encodeURIComponent(category.id)}`)}><span className="category-mark">{category.mark}</span><div><small>{String(index + 1).padStart(2, '0')} / {allItems.filter((item) => item.category === category.id).length} notes</small><h3>{category.label}</h3><SpanishHint>{category.spanishLabel}</SpanishHint><p>{category.description}<SpanishHint>{category.spanishDescription}</SpanishHint></p></div></button>)}</div></section>
     <TenseMatrix go={go} />
     <section className="featured-section"><div className="section-heading"><div><p className="eyebrow">Lab shortcuts</p><h2>Reference notes worth keeping close</h2><SpanishHint>Tablas que conviene tener a mano</SpanishHint></div></div><div className="topic-grid">{featured.map((item) => <TopicCard item={item} go={go} key={item.id} />)}</div></section>
   </main>
@@ -159,7 +173,10 @@ function TopicPage({ item, sectionId, go, note, saveNote, onAttempt }: { item: L
   useEffect(() => setNoteValue(note), [item.id, note])
   useEffect(() => {
     if (!sectionId) { window.scrollTo({ top: 0, behavior: 'auto' }); return }
-    window.setTimeout(() => document.getElementById(`section-${sectionId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60)
+    window.setTimeout(() => {
+      const target = document.getElementById(`section-${sectionId}`)
+      if (target) window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - 96, behavior: 'smooth' })
+    }, 60)
   }, [item.id, sectionId])
   useEffect(() => { const timeout = window.setTimeout(() => { if (noteValue !== note) saveNote(item.id, noteValue) }, 450); return () => window.clearTimeout(timeout) }, [item.id, note, noteValue, saveNote])
 
@@ -188,7 +205,13 @@ function TopicPage({ item, sectionId, go, note, saveNote, onAttempt }: { item: L
 function VerbDictionary({ selectedId, go }: { selectedId?: string; go: Go }) {
   const [query, setQuery] = useState('')
   const selectedRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { if (selectedId) window.setTimeout(() => selectedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80) }, [selectedId])
+  useEffect(() => {
+    if (!selectedId) return
+    window.setTimeout(() => {
+      const target = selectedRef.current
+      if (target) window.scrollTo({ top: target.getBoundingClientRect().top + window.scrollY - (window.innerHeight / 2), behavior: 'smooth' })
+    }, 80)
+  }, [selectedId])
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase()
     if (!needle) return irregularVerbs
@@ -223,7 +246,7 @@ function App() {
   else if (item) content = <TopicPage item={item} sectionId={route.params.get('section') ?? undefined} go={go} note={progress.notes[item.id]?.text ?? ''} saveNote={saveNote} onAttempt={recordAttempt} />
   else content = <NotFound go={go} />
 
-  return <div className="app-shell"><header className="site-header"><button className="brand" onClick={() => go('#/')} aria-label="Go to the GramLab home page"><span className="brand-mark">G<span>L</span></span><span><strong>GramLab</strong><small>grammar laboratory</small></span></button><SearchBox go={go} compact /><nav aria-label="Main navigation"><button className={route.path === '/' ? 'active' : ''} onClick={() => go('#/')}>Lab</button><button className={route.path === '/library' ? 'active' : ''} onClick={() => go('#/library')}>Index</button><button className={route.path === '/verbs' ? 'active' : ''} onClick={() => go('#/verbs')}>Verbs</button><button className={route.path === '/data' ? 'active' : ''} onClick={() => go('#/data')}>Data</button></nav><button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`${theme === 'light' ? 'Dark' : 'Light'} mode`}><span aria-hidden="true">{theme === 'light' ? '◐' : '☀'}</span></button></header>{content}<footer><span><strong>GramLab</strong> · visual, local reference</span><span>{allItems.length} notes · {irregularVerbs.length} verbs · offline</span></footer></div>
+  return <div className="app-shell"><header className="site-header"><button className="brand" onClick={() => go('#/')} aria-label="Go to the GramLab home page"><strong>GramLab</strong><small>A visual grammar atlas</small></button><SearchBox go={go} compact /><nav aria-label="Main navigation"><button className={route.path === '/' ? 'active' : ''} onClick={() => go('#/')}>Lab</button><button className={route.path === '/library' ? 'active' : ''} onClick={() => go('#/library')}>Index</button><button className={route.path === '/verbs' ? 'active' : ''} onClick={() => go('#/verbs')}>Verbs</button><button className={route.path === '/data' ? 'active' : ''} onClick={() => go('#/data')}>Data</button></nav><button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`${theme === 'light' ? 'Dark' : 'Light'} mode`}><span aria-hidden="true">{theme === 'light' ? '◐' : '☀'}</span></button></header>{content}<footer><span><strong>GramLab</strong> · a visual grammar atlas</span><span>{allItems.length} notes · {irregularVerbs.length} verbs · offline</span></footer></div>
 }
 
 export default App
