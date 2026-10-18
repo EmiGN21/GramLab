@@ -6,6 +6,7 @@ import '@fontsource-variable/ibm-plex-sans/wght.css'
 import App from './App'
 import './styles.css'
 import './editorial-v0.css'
+import './adventure.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

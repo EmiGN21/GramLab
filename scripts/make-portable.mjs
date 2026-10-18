@@ -14,12 +14,17 @@ if (!stylesheetMatch || !scriptMatch) {
 
 const stylesheetPath = resolve(dist, stylesheetMatch[1])
 let css = await readFile(stylesheetPath, 'utf8')
-const javascript = await readFile(resolve(dist, scriptMatch[1]), 'utf8')
+let javascript = await readFile(resolve(dist, scriptMatch[1]), 'utf8')
 
 const assetMimeTypes = {
   '.woff2': 'font/woff2',
   '.woff': 'font/woff',
   '.ttf': 'font/ttf',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
 }
 
 const cssAssetUrls = [...css.matchAll(/url\((['"]?)(\.\/[^)'"]+)\1\)/g)]
@@ -39,6 +44,18 @@ for (const [source, inlined] of inlinedAssets) {
   css = css.split(source).join(inlined)
 }
 
+const javascriptAssetUrls = [...javascript.matchAll(/new URL\((['"`])([^'"`]+)\1,import\.meta\.url\)\.href/g)]
+for (const match of javascriptAssetUrls) {
+  const mimeType = assetMimeTypes[extname(match[2]).toLowerCase()]
+  if (!mimeType) throw new Error(`Unsupported portable JavaScript asset: ${match[2]}`)
+  const asset = await readFile(resolve(dirname(resolve(dist, scriptMatch[1])), match[2]))
+  javascript = javascript.replace(match[0], JSON.stringify(`data:${mimeType};base64,${asset.toString('base64')}`))
+}
+
+if (javascript.includes('import.meta.url')) {
+  throw new Error('The portable build still references a module-relative asset.')
+}
+
 const safeJavascript = javascript.replace(/<\/script/gi, '<\\/script')
 const inlineScript = `<script>\n${safeJavascript}\n</script>`
 
@@ -46,7 +63,7 @@ const portable = index
   .replace(stylesheetMatch[0], () => `<style>\n${css}\n</style>`)
   .replace(scriptMatch[0], '')
   .replace('</body>', () => `${inlineScript}\n  </body>`)
-  .replace('<title>GramLab · visual grammar laboratory</title>', '<title>GramLab · visual grammar laboratory</title>\n    <meta name="gramlab-build" content="portable-offline" />')
+  .replace('<title>GramLab · aprende explorando</title>', '<title>GramLab · aprende explorando</title>\n    <meta name="gramlab-build" content="portable-offline" />')
   .replace(/^[ \t]+$/gm, '')
 
 if (/<(?:script|link)\b[^>]*(?:src|href)="\.\/assets\//.test(portable)) {

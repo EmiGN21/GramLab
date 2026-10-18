@@ -1,6 +1,6 @@
 # GramLab
 
-Biblioteca visual y local de gramática inglesa. Está diseñada para consultar una duda en segundos, conectar conceptos como en Obsidian y conservar notas personales sin cuentas ni internet.
+Plataforma local de gramática inglesa con un mapa de aventura 2D pixelado. Puedes seguir un camino de aprendizaje o consultar una duda directamente, sin cuentas ni internet.
 
 ## Abrir la versión portátil
 
@@ -8,18 +8,21 @@ Haz doble clic en `Abrir GramLab.bat`. El lanzador abre `dist/gramlab.html`, un 
 
 ## Desarrollo
 
-Requiere Node.js 20 o posterior y pnpm.
+Requiere Node.js 20 o posterior. Puedes usar npm o pnpm.
 
 ```powershell
-pnpm install
-pnpm dev
-pnpm build
+npm install
+npm run dev
+npm run build
 ```
 
-`pnpm build` verifica TypeScript, compila la aplicación y genera de nuevo `dist/gramlab.html`.
+`npm run build` verifica TypeScript, compila la aplicación y genera de nuevo `dist/gramlab.html` con imágenes y fuentes incrustadas.
 
 ## Qué incluye
 
+- Nueve mundos de 20 paradas (180 en total): las 51 fichas aparecen una sola vez, los 100 verbos tienen práctica propia y los mundos fantásticos añaden retos de repaso.
+- Castillos con retos de cinco preguntas y una vista de repaso; el progreso se guarda localmente.
+- Profesor guía original e ilustraciones en ejemplos de Presente simple, Preposiciones y Contables/incontables.
 - Buscador local por títulos, alias, secciones, formas verbales y significados.
 - Rutas profundas como `#/topic/prepositions?section=at`.
 - Matriz completa de 12 tiempos verbales, sin contenido bloqueado.
@@ -30,4 +33,4 @@ pnpm build
 - Migración automática e importación de respaldos Grammar Canvas v1.
 - Verificación interna de IDs, enlaces, secciones y referencias verbales.
 
-El catálogo editorial vive en `src/data/catalog.ts`, los verbos en `src/data/verbs.ts` y la matriz privada del curso en `docs/course-coverage.md`. Los videos y enlaces del curso no forman parte de la interfaz.
+El catálogo editorial vive en `src/data/catalog.ts`, los mundos en `src/data/worlds.ts`, los verbos en `src/data/verbs.ts` y la matriz privada del curso en `docs/course-coverage.md`. Los videos y enlaces del curso no forman parte de la interfaz.

@@ -5,6 +5,11 @@ import { contentIssues } from './data/integrity'
 import { irregularVerbs } from './data/verbs'
 import { useProgress } from './hooks/useProgress'
 import { useTheme } from './hooks/useTheme'
+import { AdventureHome, ReviewPage, VerbPractice, WorldChallenge, WorldReview } from './AdventureMap'
+import { findWorld, worlds } from './data/worlds'
+import presentSimpleVisual from './assets/ejemplo-presente-simple.png'
+import prepositionsVisual from './assets/ejemplo-preposiciones.png'
+import countableVisual from './assets/ejemplo-contables.png'
 import type { ContentToken, Exercise, GrammarCategory, GrammarTable, GrammarTopic, LearningItem, ReferenceSection, SearchResult, TermLink } from './types'
 
 type Go = (route: string) => void
@@ -37,8 +42,8 @@ function SearchBox({ go, compact = false }: { go: Go; compact?: boolean }) {
   return <div className={`search-wrap ${compact ? 'compact' : ''}`}>
     <form className="global-search" role="search" onSubmit={submit}>
       <span aria-hidden="true">⌕</span>
-      <label className="sr-only" htmlFor={compact ? 'header-search' : 'hero-search'}>Search GramLab</label>
-      <input id={compact ? 'header-search' : 'hero-search'} value={query} onFocus={() => setOpen(true)} onChange={(event) => { setQuery(event.target.value); setOpen(true) }} placeholder={compact ? 'Search at, went, present continuous…' : 'Ask a question: at, written, some, past continuous…'} autoComplete="off" />
+      <label className="sr-only" htmlFor={compact ? 'header-search' : 'hero-search'}>Buscar en GramLab</label>
+      <input id={compact ? 'header-search' : 'hero-search'} value={query} onFocus={() => setOpen(true)} onChange={(event) => { setQuery(event.target.value); setOpen(true) }} placeholder={compact ? 'Busca una lección, verbo o ejemplo…' : 'Busca una duda: at, written, some…'} autoComplete="off" />
       {query && <button type="button" className="clear-search" onClick={() => setQuery('')} aria-label="Clear search">×</button>}
     </form>
     {open && query && <div className="search-results" role="listbox">
@@ -64,6 +69,18 @@ function RichSentence({ tokens, go }: { tokens: ContentToken[]; go: Go }) {
       ? <button className={entry.role ? `word-token role-${entry.role}` : 'term-link'} title={roleLabel} aria-label={roleLabel ? `${entry.text}, ${roleLabel}; open reference` : `Open ${entry.text}`} key={`${entry.text}-${index}`} onClick={() => go(routeForTerm(entry.link!))}>{entry.text}</button>
       : <span className={entry.role ? `word-token role-${entry.role}` : undefined} title={roleLabel} aria-label={roleLabel ? `${entry.text}, ${roleLabel}` : undefined} key={`${entry.text}-${index}`}>{entry.text}</span>
   })}</span>
+}
+
+const lessonVisuals: Record<string, { src: string; english: string; spanish: string; alt: string }> = {
+  'present-simple': { src: presentSimpleVisual, english: 'I study English every evening.', spanish: 'Estudio inglés cada tarde.', alt: 'Una persona estudia inglés en su escritorio al atardecer.' },
+  prepositions: { src: prepositionsVisual, english: 'At the station · in the bag · on the table', spanish: 'En la estación · dentro de la bolsa · sobre la mesa', alt: 'Una estación, unas llaves dentro de una bolsa y un libro sobre una mesa.' },
+  'countable-quantifiers': { src: countableVisual, english: 'How many books? How much water?', spanish: '¿Cuántos libros? ¿Cuánta agua?', alt: 'Tres libros junto a una jarra y un vaso de agua.' },
+}
+
+function LessonVisual({ itemId }: { itemId: string }) {
+  const visual = lessonVisuals[itemId]
+  if (!visual) return null
+  return <figure className="lesson-visual"><img src={visual.src} alt={visual.alt} loading="lazy" /><figcaption><span>Ejemplo visual</span><strong>{visual.english}</strong><small lang="es">{visual.spanish}</small></figcaption></figure>
 }
 
 function ExercisePanel({ exercise, topicId, onAttempt }: { exercise: Exercise; topicId: string; onAttempt: (id: string, correct: boolean) => void }) {
@@ -188,6 +205,7 @@ function TopicPage({ item, sectionId, go, note, saveNote, onAttempt }: { item: L
     <button className="back-button" onClick={() => go('#/library')}>← Library</button>
     <section className="topic-hero"><div><div className="topic-meta"><span className="level-tag">{item.level}</span><span>{item.category}</span></div><h1>{item.title}</h1><p>{item.overview}</p>{showSpanish && <p className="spanish-overview" lang="es">{item.spanishOverview}</p>}</div><button className={`language-toggle ${showSpanish ? 'active' : ''}`} onClick={() => setShowSpanish((value) => !value)} aria-pressed={showSpanish}><span>ES</span> Spanish support {showSpanish ? 'visible' : 'hidden'}</button></section>
     <RoleLegend />
+    <LessonVisual itemId={item.id} />
     {topic && <>
       <section className="panel"><p className="eyebrow">When to use it</p><SpanishHint>Cuándo se usa</SpanishHint><div className="use-grid">{topic.uses.map((use, index) => <div key={use}><span>{String(index + 1).padStart(2, '0')}</span><p>{use}</p></div>)}</div></section>
       <section className="formula-grid">{topic.structures.map((structure) => <article key={structure.label} className="formula-card"><span>{structure.label}</span><code>{structure.formula}</code><p>{structure.translation}</p><blockquote>{structure.example}</blockquote></article>)}</section>
@@ -224,7 +242,7 @@ function DataPage({ completed, attempts, noteCount, exportProgress, importProgre
   const fileRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
   const handleImport = async (event: ChangeEvent<HTMLInputElement>) => { const file = event.target.files?.[0]; if (!file) return; try { await importProgress(file); setMessage('Backup imported successfully.') } catch (error) { setMessage(error instanceof Error ? error.message : 'The backup could not be imported.') } event.target.value = '' }
-  return <main className="page-shell"><section className="page-intro"><p className="eyebrow">Local data</p><h1>Your laboratory lives in this browser</h1><SpanishHint>Tu laboratorio vive en este navegador</SpanishHint><p>No account, cloud, or external services. Your practice and notes can travel in a JSON backup.<SpanishHint>Sin cuenta, nube ni servicios externos. Tus prácticas y notas pueden viajar en un respaldo JSON.</SpanishHint></p></section><section className="stats-grid"><div><strong>{allItems.length}</strong><span>available notes</span></div><div><strong>{completed}</strong><span>practiced topics</span></div><div><strong>{attempts}</strong><span>attempts</span></div><div><strong>{noteCount}</strong><span>personal notes</span></div></section><section className="panel backup-panel"><div><p className="eyebrow">GramLab v2 backup</p><h2>Export or restore everything</h2><SpanishHint>Exporta o restaura todo</SpanishHint><p>It also accepts Grammar Canvas v1 backups and preserves attempts and completed topics.<SpanishHint>También acepta respaldos v1 de Grammar Canvas y conserva intentos y temas completados.</SpanishHint></p></div><div><button className="primary-button" onClick={exportProgress}>Export backup</button><button className="secondary-button" onClick={() => fileRef.current?.click()}>Import backup</button><input hidden ref={fileRef} type="file" accept=".json,application/json" onChange={handleImport} />{message && <p role="status" className="import-message">{message}</p>}</div></section><section className="panel integrity-panel"><div><p className="eyebrow">Content integrity</p><h2>{contentIssues.length ? `${contentIssues.length} warnings to review` : 'Index verified'}</h2><p>{contentIssues.length ? 'The app found pending editorial references.' : 'No duplicate IDs, broken links, missing sections, or missing verb references.'}</p></div><span className={contentIssues.length ? 'status-warn' : 'status-ok'}>{contentIssues.length ? 'REVIEW' : 'OK'}</span>{contentIssues.length > 0 && <ul>{contentIssues.map((issue) => <li key={`${issue.type}-${issue.detail}`}>{issue.detail}</li>)}</ul>}</section><section className="danger-zone"><h2>Reset local data</h2><SpanishHint>Reiniciar datos locales</SpanishHint><p>Deletes GramLab practice and notes in this browser. Your color theme remains unchanged.<SpanishHint>Borra prácticas y notas de GramLab en este navegador. El modo de color se conserva.</SpanishHint></p><button onClick={() => { if (window.confirm('Delete GramLab practice and local notes?')) resetProgress() }}>Delete practice and notes</button></section></main>
+  return <main className="page-shell"><section className="page-intro"><p className="eyebrow">Local data</p><h1>Your laboratory lives in this browser</h1><SpanishHint>Tu laboratorio vive en este navegador</SpanishHint><p>No account, cloud, or external services. Your practice and notes can travel in a JSON backup.<SpanishHint>Sin cuenta, nube ni servicios externos. Tus prácticas y notas pueden viajar en un respaldo JSON.</SpanishHint></p></section><section className="stats-grid"><div><strong>{allItems.length}</strong><span>available notes</span></div><div><strong>{completed}</strong><span>paradas practicadas</span></div><div><strong>{attempts}</strong><span>attempts</span></div><div><strong>{noteCount}</strong><span>personal notes</span></div></section><section className="panel backup-panel"><div><p className="eyebrow">GramLab v2 backup</p><h2>Export or restore everything</h2><SpanishHint>Exporta o restaura todo</SpanishHint><p>It also accepts Grammar Canvas v1 backups and preserves attempts and completed topics.<SpanishHint>También acepta respaldos v1 de Grammar Canvas y conserva intentos y temas completados.</SpanishHint></p></div><div><button className="primary-button" onClick={exportProgress}>Export backup</button><button className="secondary-button" onClick={() => fileRef.current?.click()}>Import backup</button><input hidden ref={fileRef} type="file" accept=".json,application/json" onChange={handleImport} />{message && <p role="status" className="import-message">{message}</p>}</div></section><section className="panel integrity-panel"><div><p className="eyebrow">Content integrity</p><h2>{contentIssues.length ? `${contentIssues.length} warnings to review` : 'Index verified'}</h2><p>{contentIssues.length ? 'The app found pending editorial references.' : 'No duplicate IDs, broken links, missing sections, or missing verb references.'}</p></div><span className={contentIssues.length ? 'status-warn' : 'status-ok'}>{contentIssues.length ? 'REVIEW' : 'OK'}</span>{contentIssues.length > 0 && <ul>{contentIssues.map((issue) => <li key={`${issue.type}-${issue.detail}`}>{issue.detail}</li>)}</ul>}</section><section className="danger-zone"><h2>Reset local data</h2><SpanishHint>Reiniciar datos locales</SpanishHint><p>Deletes GramLab practice and notes in this browser. Your color theme remains unchanged.<SpanishHint>Borra prácticas y notas de GramLab en este navegador. El modo de color se conserva.</SpanishHint></p><button onClick={() => { if (window.confirm('Delete GramLab practice and local notes?')) resetProgress() }}>Delete practice and notes</button></section></main>
 }
 
 function NotFound({ go }: { go: Go }) { return <main className="page-shell empty-state"><p className="eyebrow">404</p><h1>That note does not exist</h1><SpanishHint>Esa ficha no existe</SpanishHint><button className="primary-button" onClick={() => go('#/')}>Back to the laboratory</button></main> }
@@ -234,19 +252,26 @@ function App() {
   const { theme, toggleTheme } = useTheme()
   const { progress, recordAttempt, saveNote, resetProgress, exportProgress, importProgress, summary } = useProgress()
   useEffect(() => { const update = () => setRoute(readRoute()); window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update) }, [])
+  useEffect(() => { window.scrollTo({ top: 0, behavior: 'auto' }) }, [route.path])
   const go: Go = (next) => { if (window.location.hash === next) setRoute(readRoute()); else window.location.hash = next }
   const topicId = route.path.startsWith('/topic/') ? decodeURIComponent(route.path.replace('/topic/', '')) : undefined
   const item = topicId ? findItem(topicId) : undefined
+  const worldReviewMatch = route.path.match(/^\/world\/([^/]+)\/review\/([^/]+)$/)
 
   let content
-  if (route.path === '/') content = <Home go={go} />
+  if (route.path === '/') content = <AdventureHome selectedWorld={route.params.get('world') ?? undefined} progress={progress} go={go} />
   else if (route.path === '/library') content = <Library go={go} selectedCategory={route.params.get('category') ?? undefined} />
+  else if (route.path === '/tenses') content = <main className="page-shell tense-page"><button className="back-button" onClick={() => go('#/?world=viaje-en-el-tiempo')}>← Desierto del tiempo</button><TenseMatrix go={go} /></main>
   else if (route.path === '/verbs') content = <VerbDictionary selectedId={route.params.get('verb') ?? undefined} go={go} />
-  else if (route.path === '/data') content = <DataPage completed={summary.completed} attempts={summary.attempts} noteCount={summary.notes} exportProgress={exportProgress} importProgress={importProgress} resetProgress={resetProgress} />
+  else if (route.path === '/review') content = <ReviewPage progress={progress} go={go} />
+  else if (route.path.startsWith('/practice/verb/')) { const verbId = decodeURIComponent(route.path.replace('/practice/verb/', '')); content = worlds.some((world) => world.stops.some((stop) => stop.id === `verb:${verbId}`)) ? <VerbPractice key={verbId} verbId={verbId} progress={progress} onAttempt={recordAttempt} go={go} /> : <NotFound go={go} /> }
+  else if (worldReviewMatch) { const worldId = decodeURIComponent(worldReviewMatch[1]); const reviewId = decodeURIComponent(worldReviewMatch[2]); content = findWorld(worldId)?.stops.some((stop) => stop.id === `review:${worldId}:${reviewId}`) ? <WorldReview key={`${worldId}:${reviewId}`} worldId={worldId} topicId={reviewId} progress={progress} onAttempt={recordAttempt} go={go} /> : <NotFound go={go} /> }
+  else if (route.path.startsWith('/world/') && route.path.endsWith('/challenge')) { const worldId = decodeURIComponent(route.path.slice('/world/'.length, -'/challenge'.length)); content = findWorld(worldId) ? <WorldChallenge key={worldId} worldId={worldId} progress={progress} onAttempt={recordAttempt} go={go} /> : <NotFound go={go} /> }
+  else if (route.path === '/data') content = <DataPage completed={worlds.flatMap((world) => world.stops).filter((stop) => progress.topics[stop.id]?.completed).length} attempts={summary.attempts} noteCount={summary.notes} exportProgress={exportProgress} importProgress={importProgress} resetProgress={resetProgress} />
   else if (item) content = <TopicPage item={item} sectionId={route.params.get('section') ?? undefined} go={go} note={progress.notes[item.id]?.text ?? ''} saveNote={saveNote} onAttempt={recordAttempt} />
   else content = <NotFound go={go} />
 
-  return <div className="app-shell"><header className="site-header"><button className="brand" onClick={() => go('#/')} aria-label="Go to the GramLab home page"><strong>GramLab</strong><small>A visual grammar atlas</small></button><SearchBox go={go} compact /><nav aria-label="Main navigation"><button className={route.path === '/' ? 'active' : ''} onClick={() => go('#/')}>Lab</button><button className={route.path === '/library' ? 'active' : ''} onClick={() => go('#/library')}>Index</button><button className={route.path === '/verbs' ? 'active' : ''} onClick={() => go('#/verbs')}>Verbs</button><button className={route.path === '/data' ? 'active' : ''} onClick={() => go('#/data')}>Data</button></nav><button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`${theme === 'light' ? 'Dark' : 'Light'} mode`}><span aria-hidden="true">{theme === 'light' ? '◐' : '☀'}</span></button></header>{content}<footer><span><strong>GramLab</strong> · a visual grammar atlas</span><span>{allItems.length} notes · {irregularVerbs.length} verbs · offline</span></footer></div>
+  return <div className="app-shell"><header className="site-header"><button className="brand" onClick={() => go('#/')} aria-label="Ir al mapa de GramLab"><strong>GramLab</strong><small>APRENDE EXPLORANDO</small></button><nav aria-label="Navegación principal"><button className={route.path === '/' ? 'active' : ''} onClick={() => go('#/')}>Mapa</button><button className={route.path === '/library' || Boolean(item) ? 'active' : ''} onClick={() => go('#/library')}>Lecciones</button><button className={route.path === '/verbs' || route.path.startsWith('/practice/verb/') ? 'active' : ''} onClick={() => go('#/verbs')}>Verbos</button><button className={route.path === '/review' ? 'active' : ''} onClick={() => go('#/review')}>Repaso</button><button className={route.path === '/data' ? 'active' : ''} onClick={() => go('#/data')}>Progreso</button></nav><SearchBox go={go} compact /><button className="theme-toggle" onClick={toggleTheme} aria-label={`Cambiar a modo ${theme === 'light' ? 'oscuro' : 'claro'}`} title={`Modo ${theme === 'light' ? 'oscuro' : 'claro'}`}><span aria-hidden="true">{theme === 'light' ? '◐' : '☀'}</span></button></header>{content}<footer><span><strong>GramLab</strong> · aprende explorando</span><span>{allItems.length} lecciones · {irregularVerbs.length} verbos · sin conexión</span></footer></div>
 }
 
 export default App
