@@ -46,6 +46,8 @@ const chapterPositions = [
 ]
 
 const chapterTitles = ['Trailhead', 'Practice Camp', 'Signal Crossing', 'Grammar Rise', 'Final Ascent']
+const routePath = 'M142 672 C 220 640 272 520 354 478 S 528 556 610 590 S 754 432 842 365 S 970 272 1036 184'
+const mapPoint = (x: number, y: number) => ({ left: `${x / 12}%`, top: `${y / 8.2}%` })
 
 const labelForStop = (stop: WorldStop) => stop.kind === 'verb' ? 'Verb mission' : stop.kind === 'review' ? 'Review mission' : 'Grammar mission'
 const kindSymbol = (stop: WorldStop) => stop.kind === 'verb' ? 'V' : stop.kind === 'review' ? 'R' : 'G'
@@ -57,26 +59,39 @@ function CastleIcon({ className = '' }: { className?: string }) {
 }
 
 function RouteLine() {
-  const path = 'M142 672 C 220 640 272 520 354 478 S 528 556 610 590 S 754 432 842 365 S 970 272 1036 184'
-  return <svg className="quest-route" viewBox="0 0 1200 820" preserveAspectRatio="none" shapeRendering="crispEdges" aria-hidden="true"><path d={path} className="quest-route__edge"/><path d={path} className="quest-route__bed"/><path d={path} className="quest-route__dash"/></svg>
+  return <svg className="quest-route" viewBox="0 0 1200 820" preserveAspectRatio="none" aria-hidden="true"><path d={routePath} className="quest-route__edge"/><path d={routePath} className="quest-route__bed"/><path d={routePath} className="quest-route__dash"/></svg>
 }
 
 function WorldMap({ world, progress, go, onTravel }: { world: LearningWorld; progress: ProgressRecord; go: Go; onTravel: () => void }) {
   const mapScrollRef = useRef<HTMLDivElement>(null)
-  useEffect(() => { if (mapScrollRef.current) { mapScrollRef.current.scrollLeft = 0; mapScrollRef.current.scrollTop = 0 } }, [world.id])
   const chapters = useMemo(() => chunkStops(world), [world])
   const done = world.stops.filter((stop) => progress.topics[stop.id]?.completed).length
   const currentIndex = world.stops.findIndex((stop) => !progress.topics[stop.id]?.completed)
   const currentChapter = Math.min(chapters.length - 1, Math.max(0, Math.floor((currentIndex === -1 ? world.stops.length - 1 : currentIndex) / 4)))
   const [selectedChapter, setSelectedChapter] = useState(currentChapter)
   const [mapMessage, setMapMessage] = useState('Pick a checkpoint to open its mission list.')
-  useEffect(() => { setSelectedChapter(currentChapter); setMapMessage('Your guide is waiting at the next mission.'); }, [world.id, currentChapter])
+  const [lanternLit, setLanternLit] = useState(false)
+  useEffect(() => {
+    const map = mapScrollRef.current
+    if (map) map.scrollLeft = map.scrollWidth * chapterPositions[currentChapter].x / 1200 - map.clientWidth / 2
+  }, [currentChapter])
   const selectedStops = chapters[selectedChapter]
   const selectedDone = selectedStops.filter((stop) => progress.topics[stop.id]?.completed).length
-  const characterPosition = chapterPositions[currentChapter]
+  const characterPosition = chapterPositions[selectedChapter]
   const challengeDone = Boolean(progress.topics[`world:${world.id}`]?.completed)
   const copy = worldCopy[world.id]
-  return <section className={`world-section landscape-${world.landscape}`} aria-labelledby="world-title">
+
+  function selectChapter(index: number, panMap = false) {
+    setSelectedChapter(index)
+    setMapMessage(`${chapterTitles[index]} has ${chapters[index].length} missions.`)
+    const map = mapScrollRef.current
+    if (!panMap || !map) return
+    const left = map.scrollWidth * chapterPositions[index].x / 1200 - map.clientWidth / 2
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    map.scrollTo({ left, behavior: reduceMotion ? 'instant' : 'smooth' })
+  }
+
+  return <section className="world-section" aria-labelledby="world-title">
     <div className="world-header world-header--game">
       <div><span className="world-header__index">World {String(worlds.indexOf(world) + 1).padStart(2, '0')} / {String(worlds.length).padStart(2, '0')}</span><h2 id="world-title">{copy.name}</h2><p>{copy.subtitle}</p><small lang="es">{world.name} · {world.subtitle}</small></div>
       <div className="world-header__progress"><strong>{done}<span> / {world.stops.length}</span></strong><small>missions practised</small><div className="world-progress-track"><span style={{ transform: `scaleX(${done / world.stops.length})` }} /></div></div>
@@ -91,21 +106,59 @@ function WorldMap({ world, progress, go, onTravel }: { world: LearningWorld; pro
           const position = chapterPositions[index]
           const completed = stops.filter((stop) => progress.topics[stop.id]?.completed).length
           const isCurrent = index === currentChapter
-          return <button key={index} className={`quest-checkpoint ${selectedChapter === index ? 'is-selected' : ''} ${isCurrent ? 'is-current' : ''} ${completed === stops.length ? 'is-complete' : ''}`} style={{ left: position.x, top: position.y }} onClick={() => { setSelectedChapter(index); setMapMessage(`${chapterTitles[index]} holds ${stops.length} missions.`) }} aria-pressed={selectedChapter === index}>
+          return <button key={index} className={`quest-checkpoint ${selectedChapter === index ? 'is-selected' : ''} ${isCurrent ? 'is-current' : ''} ${completed === stops.length ? 'is-complete' : ''}`} style={mapPoint(position.x, position.y)} onClick={() => selectChapter(index)} aria-pressed={selectedChapter === index}>
             <span className="quest-checkpoint__orb">{completed === stops.length ? '✓' : String(index + 1).padStart(2, '0')}</span><span className="quest-checkpoint__copy"><strong>{chapterTitles[index]}</strong><small>{completed}/{stops.length} missions</small></span>
           </button>
         })}
-        <div className="guide-figure guide-figure--quest" style={{ left: characterPosition.x + 39, top: characterPosition.y - 111 }} aria-hidden="true"><img src={teacher} alt="" /></div>
-        <button className="map-object map-object--sign" style={{ left: 520, top: 170 }} onClick={() => setMapMessage(`Tip: every colour means a different kind of mission. ${copy.landmark} is ahead.`)}><span aria-hidden="true">?</span><span>Trail sign</span></button>
-        <button className="map-object map-object--lantern" style={{ left: 742, top: 690 }} onClick={() => setMapMessage('Lantern lit: use the map for direction, then use the notes when you need detail.')}><span aria-hidden="true">✦</span><span>Language lantern</span></button>
-        <button className={`map-castle map-castle--quest ${challengeDone ? 'is-complete' : ''}`} style={{ left: 1042, top: 89 }} onClick={() => go(`#/world/${world.id}/challenge`)}>
+        <div className="guide-figure guide-figure--quest" style={mapPoint(characterPosition.x + (selectedChapter === chapters.length - 1 ? -130 : 62), characterPosition.y - 92)} aria-hidden="true"><img src={teacher} alt="" /></div>
+        <button className="map-object map-object--sign" style={mapPoint(520, 170)} onClick={() => setMapMessage(`Look for G for grammar, V for verbs, and R for review. ${copy.landmark} is ahead.`)}><span aria-hidden="true">?</span><span>Trail sign</span></button>
+        <button className="map-object map-object--lantern" style={mapPoint(742, 690)} aria-pressed={lanternLit} onClick={() => {
+          setLanternLit(!lanternLit)
+          setMapMessage(lanternLit ? 'Lantern out.' : 'Lantern lit. If you get stuck, open the grammar note for a clue.')
+        }}><span aria-hidden="true">✦</span><span>Language lantern</span></button>
+        <button className={`map-castle map-castle--quest ${challengeDone ? 'is-complete' : ''}`} style={mapPoint(1042, 78)} onClick={() => go(`#/world/${world.id}/challenge`)}>
           <CastleIcon /><span><strong>World challenge</strong><small>{challengeDone ? 'Cleared' : '5 questions · always open'}</small></span>
         </button>
       </div>
       </div>
-      <aside className="mission-console" aria-live="polite"><div className="mission-console__top"><span>MISSION LOG</span><strong>{String(selectedChapter + 1).padStart(2, '0')} / 05</strong></div><h3>{chapterTitles[selectedChapter]}</h3><p>{selectedDone === selectedStops.length ? 'This checkpoint is clear. Revisit any mission whenever you want.' : `${selectedStops.length - selectedDone} mission${selectedStops.length - selectedDone === 1 ? '' : 's'} waiting here.`}</p><div className="mission-console__list">{selectedStops.map((stop, index) => { const complete = Boolean(progress.topics[stop.id]?.completed); const current = stop.id === world.stops[currentIndex]?.id; return <button key={stop.id} className={`${stop.kind} ${complete ? 'is-complete' : ''} ${current ? 'is-current' : ''}`} onClick={() => go(stop.route)}><span>{complete ? '✓' : kindSymbol(stop)}</span><strong>{String(selectedChapter * 4 + index + 1).padStart(2, '0')}. {stop.title}</strong><small>{current ? 'Next objective' : labelForStop(stop)}</small></button> })}</div><button className="mission-console__continue" onClick={() => go(world.stops[Math.max(0, currentIndex)].route)}>{currentIndex === -1 ? 'Replay a mission' : 'Resume next mission'} <span aria-hidden="true">→</span></button></aside>
+      <aside className="mission-console" aria-label="Mission log">
+        <div className="mission-console__top"><span>MISSION LOG</span><strong>{selectedChapter + 1} / {chapters.length}</strong></div>
+        <nav className="mission-console__minimap" aria-label="Minimap checkpoints" style={{ backgroundImage: `url("${landscapeArt[world.landscape]}")` }}>
+          <span>MINIMAP</span>
+          <svg viewBox="0 0 1200 820" preserveAspectRatio="none" aria-hidden="true"><path d={routePath} /></svg>
+          {chapters.map((stops, index) => {
+            const completed = stops.every((stop) => progress.topics[stop.id]?.completed)
+            const { x, y } = chapterPositions[index]
+            return <button
+              key={index}
+              className={completed ? 'is-complete' : undefined}
+              style={mapPoint(x, y)}
+              onClick={() => selectChapter(index, true)}
+              aria-label={`Open ${chapterTitles[index]}${completed ? ', cleared' : ''}`}
+              aria-pressed={selectedChapter === index}
+            >{completed ? '✓' : index + 1}</button>
+          })}
+        </nav>
+        <div className="mission-console__summary" aria-live="polite">
+          <h3>{chapterTitles[selectedChapter]}</h3>
+          <p>{selectedDone} of {selectedStops.length} missions cleared.</p>
+        </div>
+        <div className="mission-console__list">
+          {selectedStops.map((stop, index) => {
+            const complete = Boolean(progress.topics[stop.id]?.completed)
+            const current = stop.id === world.stops[currentIndex]?.id
+            return <button key={stop.id} className={`${stop.kind} ${complete ? 'is-complete' : ''} ${current ? 'is-current' : ''}`} onClick={() => go(stop.route)}>
+              <span aria-hidden="true">{complete ? '✓' : kindSymbol(stop)}</span>
+              <strong>{selectedChapter * 4 + index + 1}. {stop.title}</strong>
+              <small>{complete ? 'Cleared' : current ? 'Next objective' : labelForStop(stop)}</small>
+            </button>
+          })}
+        </div>
+        <button className="mission-console__continue" onClick={() => go(world.stops[Math.max(0, currentIndex)].route)}>{currentIndex === -1 ? 'Replay a mission' : 'Resume next mission'} <span aria-hidden="true">→</span></button>
+        <p className="mission-console__tip" role="status">{mapMessage}</p>
+      </aside>
     </div>
-    <div className="world-underbar world-underbar--game"><div className="guide-message"><img src={teacher} alt="" aria-hidden="true" /><p><strong>Guide note</strong>{mapMessage}<small lang="es">Consejo del guía: elige una estación o continúa tu siguiente misión.</small></p></div><div className="world-underbar__actions">{world.id === 'viaje-en-el-tiempo' && <button onClick={() => go('#/tenses')}>Open tense matrix →</button>}<button onClick={onTravel}>Open world map</button></div></div>
+    <div className="world-underbar world-underbar--game"><div className="world-underbar__actions">{world.id === 'viaje-en-el-tiempo' && <button onClick={() => go('#/tenses')}>Open tense matrix →</button>}<button onClick={onTravel}>Open world map</button></div></div>
   </section>
 }
 
@@ -118,9 +171,29 @@ export function AdventureHome({ selectedWorld, progress, go }: { selectedWorld?:
   const currentStop = world.stops[Math.max(0, currentIndex)]
   const copy = worldCopy[world.id]
   return <main className="adventure-home adventure-home--game">
-    <section className="adventure-intro adventure-intro--game"><div className="adventure-intro__flag"><span>GRAMLAB ADVENTURE</span><small>LOCAL SAVE · NO ACCOUNT</small></div><div className="adventure-intro__body"><div><p className="adventure-kicker">YOUR ENGLISH QUEST</p><h1>One world. One useful rule. One step forward.</h1><p>Choose a world, enter a checkpoint, and keep every grammar note close when a real conversation needs it.</p><small lang="es">Un mundo, una regla útil y un paso adelante. Todo tu progreso se queda guardado aquí.</small></div><div className="adventure-intro__actions"><button className="quest-primary" onClick={() => go(currentStop.route)}>Resume mission <span aria-hidden="true">▶</span></button><button className="quest-secondary" onClick={() => setAtlasOpen((value) => !value)} aria-expanded={atlasOpen}>World map <span aria-hidden="true">{atlasOpen ? '▲' : '▼'}</span></button></div></div><div className="adventure-intro__count"><strong>{totalDone}<span> / {totalStops}</span></strong><small>missions practised</small><div><i style={{ transform: `scaleX(${totalDone / totalStops})` }} /></div></div></section>
-    {atlasOpen && <section className="world-atlas" aria-label="World map"><div className="world-atlas__heading"><div><span>WORLD MAP</span><h2>Pick a territory</h2><p>Every world is open. The route is a suggestion, never a lock.</p></div><button onClick={() => setAtlasOpen(false)} aria-label="Close world map">×</button></div><div className="world-atlas__grid">{worlds.map((entry, index) => { const completed = entry.stops.filter((stop) => progress.topics[stop.id]?.completed).length; const entryCopy = worldCopy[entry.id]; return <button key={entry.id} className={world.id === entry.id ? 'is-active' : ''} onClick={() => { go(`#/?world=${entry.id}`); setAtlasOpen(false) }}><img src={landscapeArt[entry.landscape]} alt="" aria-hidden="true" /><span><small>WORLD {String(index + 1).padStart(2, '0')}</small><strong>{entryCopy.name}</strong><em>{completed}/{entry.stops.length} missions</em></span></button> })}</div></section>}
-    <WorldMap world={world} progress={progress} go={go} onTravel={() => setAtlasOpen(true)} />
+    <section className="adventure-intro adventure-intro--game">
+      <div className="adventure-intro__body">
+        <div>
+          <h1>English Quest</h1>
+          <p>Pick a world or resume your next mission.</p>
+          <small lang="es">Elige un mundo o continúa tu próxima misión.</small>
+        </div>
+        <div className="adventure-intro__actions">
+          <button className="quest-primary" onClick={() => go(currentStop.route)}>{currentIndex === -1 ? 'Replay a mission' : 'Resume mission'} <span aria-hidden="true">▶</span></button>
+          <button className="quest-secondary" onClick={() => setAtlasOpen((value) => !value)} aria-expanded={atlasOpen} aria-controls="world-atlas">World map <span aria-hidden="true">{atlasOpen ? '▲' : '▼'}</span></button>
+        </div>
+      </div>
+      <div className="adventure-intro__count">
+        <strong>{totalDone}<span> / {totalStops}</span></strong>
+        <small>missions practised</small>
+        <div><i style={{ transform: `scaleX(${totalDone / totalStops})` }} /></div>
+      </div>
+    </section>
+    {atlasOpen && <section id="world-atlas" className="world-atlas" aria-label="World map"><div className="world-atlas__heading"><div><h2>Pick a world</h2><p>You can visit any world.</p></div><button onClick={() => setAtlasOpen(false)} aria-label="Close world map">×</button></div><div className="world-atlas__grid">{worlds.map((entry, index) => { const completed = entry.stops.filter((stop) => progress.topics[stop.id]?.completed).length; const entryCopy = worldCopy[entry.id]; return <button key={entry.id} className={world.id === entry.id ? 'is-active' : ''} aria-current={world.id === entry.id ? 'true' : undefined} onClick={() => { go(`#/?world=${entry.id}`); setAtlasOpen(false) }}><img src={landscapeArt[entry.landscape]} alt="" aria-hidden="true" /><span><small>WORLD {String(index + 1).padStart(2, '0')}</small><strong>{entryCopy.name}</strong><em>{completed}/{entry.stops.length} missions</em></span></button> })}</div></section>}
+    <WorldMap key={world.id} world={world} progress={progress} go={go} onTravel={() => {
+      setAtlasOpen(true)
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }} />
     <div className="adventure-bottom adventure-bottom--game"><p>Need one precise rule instead? All {allItems.length} reference notes and 100 irregular verbs are still one click away.</p><button onClick={() => go('#/library')}>Open grammar library →</button></div>
   </main>
 }
@@ -144,7 +217,41 @@ export function VerbPractice({ verbId, progress, onAttempt, go }: { verbId: stri
   const answer = stop.verb.past
   const completed = Boolean(progress.topics[stop.id]?.completed)
   const isCorrect = selected === answer
-  return <main className="adventure-page"><button className="adventure-back" onClick={() => go(`#/?world=${world.id}`)}>← Back to {displayWorldName(world)}</button><div className="practice-layout"><section className="practice-main"><span className="adventure-tag">Verb mission</span><h1>{stop.verb.base}</h1><p className="practice-meaning"><span>Meaning</span><small lang="es">{stop.verb.meaning}</small></p><div className="practice-question"><h2>What is its past form?</h2><div className="practice-choices">{options.map((option) => <button key={option} disabled={selected !== null} className={selected === option ? (option === answer ? 'correct' : 'wrong') : ''} onClick={() => { setSelected(option); onAttempt(stop.id, option === answer) }}>{option}</button>)}</div>{isCorrect && <CompletionBurst />}{selected !== null && <div className="practice-feedback" role="status"><strong>{isCorrect ? 'Mission complete!' : `The correct form is ${answer}.`}</strong><p>Past participle: <b>{stop.verb.participle}</b></p><button onClick={() => setSelected(null)}>Try again</button></div>}</div></section><aside className="practice-aside"><img src={teacher} alt="GramLab guide" /><h2>One word, three forms</h2><p>{stop.verb.base} → {stop.verb.past} → {stop.verb.participle}</p><blockquote>{stop.verb.examples[0]}</blockquote><button onClick={() => go(`#/verbs?verb=${stop.verb.id}`)}>Open in dictionary →</button>{completed && <small>You already practised this mission.</small>}</aside></div></main>
+  const nextRoute = world.stops[world.stops.indexOf(stop) + 1]?.route ?? `#/world/${world.id}/challenge`
+  return <main className="adventure-page">
+    <button className="adventure-back" onClick={() => go(`#/?world=${world.id}`)}>← Back to {displayWorldName(world)}</button>
+    <div className="practice-layout">
+      <section className="practice-main">
+        <span className="adventure-tag">Verb mission</span>
+        <h1>{stop.verb.base}</h1>
+        <p className="practice-meaning"><span>Meaning</span><small lang="es">{stop.verb.meaning}</small></p>
+        <div className="practice-question">
+          <h2>What is its past form?</h2>
+          <div className="practice-choices">{options.map((option) => <button key={option} disabled={selected !== null} className={selected === option ? (isCorrect ? 'correct' : 'wrong') : ''} onClick={() => {
+            setSelected(option)
+            onAttempt(stop.id, option === answer)
+          }}>{option}</button>)}</div>
+          {isCorrect && <CompletionBurst />}
+          {selected !== null && <div className="practice-feedback">
+            {!isCorrect && <strong role="status">The correct form is {answer}.</strong>}
+            <p>Past participle: <b>{stop.verb.participle}</b></p>
+            <div className="review-feedback-actions">
+              <button onClick={() => setSelected(null)}>Try again</button>
+              {isCorrect && <button onClick={() => go(nextRoute)}>Next mission →</button>}
+            </div>
+          </div>}
+        </div>
+      </section>
+      <aside className="practice-aside">
+        <img src={teacher} alt="GramLab guide" />
+        <h2>One word, three forms</h2>
+        <p>{stop.verb.base} → {stop.verb.past} → {stop.verb.participle}</p>
+        <blockquote>{stop.verb.examples[0]}</blockquote>
+        <button onClick={() => go(`#/verbs?verb=${stop.verb.id}`)}>Open in dictionary →</button>
+        {completed && selected === null && <small>You already practised this mission.</small>}
+      </aside>
+    </div>
+  </main>
 }
 
 type ChallengeQuestion = { id: string; prompt: string; options: string[]; correctIndex: number; explanation: string }
@@ -162,10 +269,10 @@ function reviewQuestionFor(stop: Extract<WorldStop, { kind: 'review' }>): Challe
   const options = [item.title, ...alternatives].sort((a, b) => a.localeCompare(b))
   return {
     id: stop.id,
-    prompt: `Which lesson matches this idea? ${item.spanishOverview}`,
+    prompt: `Which lesson matches this idea? ${item.overview}`,
     options,
     correctIndex: options.indexOf(item.title),
-    explanation: `${item.title}: ${item.spanishOverview}`,
+    explanation: `${item.title}: ${item.overview}`,
   }
 }
 
@@ -209,7 +316,45 @@ export function WorldChallenge({ worldId, progress, onAttempt, go }: { worldId: 
   const question = questions[answers.length]
   const completedBefore = Boolean(progress.topics[`world:${world.id}`]?.completed)
   const cleared = score >= 4
-  return <main className="adventure-page"><button className="adventure-back" onClick={() => go(`#/?world=${world.id}`)}>← Back to map</button><section className="challenge-shell"><div className="challenge-heading"><CastleIcon /><span className="adventure-tag">World challenge · {displayWorldName(world)}</span><h1>Show what you know</h1><p>Five quick questions. You can retry whenever you want.</p><small lang="es">Reto final: cinco preguntas rápidas, sin contenido bloqueado.</small></div>{!done ? <div className="challenge-question"><div className="challenge-count"><span>Question {answers.length + 1} of {questions.length}</span><div><i style={{ width: `${(answers.length / questions.length) * 100}%` }} /></div></div><h2>{question.prompt}</h2><div className="practice-choices">{question.options.map((option, index) => <button key={`${option}-${index}`} onClick={() => { const next = [...answers, index]; setAnswers(next); if (next.length === questions.length) onAttempt(`world:${world.id}`, next.filter((answer, questionIndex) => answer === questions[questionIndex].correctIndex).length >= 4) }}>{option}</button>)}</div></div> : <div className="challenge-result" role="status">{cleared && <CompletionBurst label="World cleared" />}<strong>{score} / {questions.length}</strong><h2>{cleared ? 'World cleared!' : 'Try the challenge again'}</h2><p>{cleared ? 'You cleared this world challenge.' : 'Review the missions and try again. Nothing is locked.'}</p><div className="challenge-review">{questions.map((entry, index) => <p key={entry.id}><span>{answers[index] === entry.correctIndex ? '✓' : '×'}</span>{entry.explanation}</p>)}</div><div className="challenge-actions"><button onClick={() => setAnswers([])}>Retry challenge</button><button onClick={() => go(`#/?world=${world.id}`)}>Back to map →</button></div></div>}{completedBefore && !done && <p className="challenge-completed">You cleared this challenge before. Replay it whenever you want.</p>}</section></main>
+  const nextWorld = worlds[worlds.indexOf(world) + 1]
+
+  function answerQuestion(index: number) {
+    const next = [...answers, index]
+    setAnswers(next)
+    if (next.length === questions.length) {
+      const correct = next.filter((answer, questionIndex) => answer === questions[questionIndex].correctIndex).length
+      onAttempt(`world:${worldId}`, correct >= 4)
+    }
+  }
+
+  return <main className="adventure-page">
+    <button className="adventure-back" onClick={() => go(`#/?world=${world.id}`)}>← Back to map</button>
+    <section className="challenge-shell">
+      <div className="challenge-heading">
+        <CastleIcon />
+        <span className="adventure-tag">World challenge · {displayWorldName(world)}</span>
+        <h1>Show what you know</h1>
+        <p>Get four of five right to clear this world. You can retry anytime.</p>
+        <small className="es-subtitle" lang="es">Acierta cuatro de cinco para superar el reto.</small>
+      </div>
+      {!done ? <div className="challenge-question">
+        <div className="challenge-count"><span>Question {answers.length + 1} of {questions.length}</span><div><i style={{ width: `${answers.length / questions.length * 100}%` }} /></div></div>
+        <h2>{question.prompt}</h2>
+        <div className="practice-choices">{question.options.map((option, index) => <button key={`${option}-${index}`} onClick={() => answerQuestion(index)}>{option}</button>)}</div>
+      </div> : <div className="challenge-result">
+        {cleared && <CompletionBurst label="World cleared" />}
+        <strong>{score} / {questions.length}</strong>
+        <h2>{cleared ? 'World cleared!' : 'Try the challenge again'}</h2>
+        <div className="challenge-review">{questions.map((entry, index) => <p key={entry.id}><span>{answers[index] === entry.correctIndex ? '✓' : '×'}</span>{entry.explanation}</p>)}</div>
+        <div className="challenge-actions">
+          <button onClick={() => setAnswers([])}>Retry challenge</button>
+          <button onClick={() => go(`#/?world=${world.id}`)}>Back to map</button>
+          {cleared && nextWorld && <button onClick={() => go(`#/?world=${nextWorld.id}`)}>Travel to {displayWorldName(nextWorld)} →</button>}
+        </div>
+      </div>}
+      {completedBefore && !done && <p className="challenge-completed">You cleared this challenge before. Replay it whenever you want.</p>}
+    </section>
+  </main>
 }
 
 export function ReviewPage({ progress, go }: { progress: ProgressRecord; go: Go }) {

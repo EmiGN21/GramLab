@@ -6,7 +6,7 @@ import { irregularVerbs } from './data/verbs'
 import { useProgress } from './hooks/useProgress'
 import { useTheme } from './hooks/useTheme'
 import { AdventureHome, ReviewPage, VerbPractice, WorldChallenge, WorldReview } from './AdventureMap'
-import { findWorld, worlds } from './data/worlds'
+import { findWorld, worlds, type LearningWorld } from './data/worlds'
 import presentSimpleVisual from './assets/ejemplo-presente-simple.png'
 import prepositionsVisual from './assets/ejemplo-preposiciones.png'
 import countableVisual from './assets/ejemplo-contables.png'
@@ -42,8 +42,8 @@ function SearchBox({ go, compact = false }: { go: Go; compact?: boolean }) {
   return <div className={`search-wrap ${compact ? 'compact' : ''}`}>
     <form className="global-search" role="search" onSubmit={submit}>
       <span aria-hidden="true">⌕</span>
-      <label className="sr-only" htmlFor={compact ? 'header-search' : 'hero-search'}>Buscar en GramLab</label>
-      <input id={compact ? 'header-search' : 'hero-search'} value={query} onFocus={() => setOpen(true)} onChange={(event) => { setQuery(event.target.value); setOpen(true) }} placeholder={compact ? 'Busca una lección, verbo o ejemplo…' : 'Busca una duda: at, written, some…'} autoComplete="off" />
+      <label className="sr-only" htmlFor={compact ? 'header-search' : 'hero-search'}>Search GramLab</label>
+      <input id={compact ? 'header-search' : 'hero-search'} value={query} onFocus={() => setOpen(true)} onChange={(event) => { setQuery(event.target.value); setOpen(true) }} placeholder={compact ? 'Find a note, verb, or example…' : 'Search at, written, some…'} autoComplete="off" />
       {query && <button type="button" className="clear-search" onClick={() => setQuery('')} aria-label="Clear search">×</button>}
     </form>
     {open && query && <div className="search-results" role="listbox">
@@ -88,7 +88,8 @@ function ExercisePanel({ exercise, topicId, onAttempt }: { exercise: Exercise; t
   const [typed, setTyped] = useState('')
   const [wordOrder, setWordOrder] = useState<number[]>([])
   const [feedback, setFeedback] = useState<Feedback>(null)
-  useEffect(() => { setSelected(null); setTyped(''); setWordOrder([]); setFeedback(null) }, [exercise.id])
+  const reset = () => { setSelected(null); setTyped(''); setWordOrder([]); setFeedback(null) }
+  useEffect(reset, [exercise.id])
   const submit = (correct: boolean) => { setFeedback({ correct, message: exercise.explanation }); onAttempt(topicId, correct) }
 
   return <section className="practice-card">
@@ -97,6 +98,7 @@ function ExercisePanel({ exercise, topicId, onAttempt }: { exercise: Exercise; t
     {exercise.type === 'input' && <form className="input-row" onSubmit={(event) => { event.preventDefault(); if (typed.trim()) submit(exercise.acceptedAnswers.some((answer) => normalizeAnswer(answer) === normalizeAnswer(typed))) }}><input value={typed} onChange={(event) => setTyped(event.target.value)} placeholder={exercise.placeholder} disabled={Boolean(feedback)} /><button className="primary-button" disabled={!typed.trim() || Boolean(feedback)}>Check</button></form>}
     {exercise.type === 'order' && <div><div className="order-answer">{wordOrder.length ? wordOrder.map((index) => exercise.words[index]).join(' ') : 'Build the sentence here.'}</div><div className="word-bank">{exercise.words.map((word, index) => <button key={`${word}-${index}`} disabled={wordOrder.includes(index) || Boolean(feedback)} onClick={() => setWordOrder((current) => [...current, index])}>{word}</button>)}</div><div className="practice-actions"><button onClick={() => setWordOrder([])} disabled={!wordOrder.length || Boolean(feedback)}>Clear</button><button className="primary-button" onClick={() => submit(normalizeAnswer(wordOrder.map((index) => exercise.words[index]).join(' ')) === normalizeAnswer(exercise.answer))} disabled={!wordOrder.length || Boolean(feedback)}>Check</button></div></div>}
     {feedback && <p className={`feedback ${feedback.correct ? 'correct' : 'incorrect'}`} role="status"><strong>{feedback.correct ? 'Correct.' : 'Almost.'}</strong> {feedback.message}</p>}
+    {feedback && !feedback.correct && <button className="secondary-button" onClick={reset}>Try again</button>}
   </section>
 }
 
@@ -184,7 +186,16 @@ function ReferenceSectionCard({ entry, go }: { entry: ReferenceSection; go: Go }
   </article>
 }
 
-function TopicPage({ item, sectionId, go, note, saveNote, onAttempt }: { item: LearningItem; sectionId?: string; go: Go; note: string; saveNote: (id: string, text: string) => void; onAttempt: (id: string, correct: boolean) => void }) {
+function TopicPage({ item, sectionId, go, note, saveNote, onAttempt, missionWorld, completed }: {
+  item: LearningItem
+  sectionId?: string
+  go: Go
+  note: string
+  saveNote: (id: string, text: string) => void
+  onAttempt: (id: string, correct: boolean) => void
+  missionWorld?: LearningWorld
+  completed: boolean
+}) {
   const [showSpanish, setShowSpanish] = useState(true)
   const [noteValue, setNoteValue] = useState(note)
   useEffect(() => setNoteValue(note), [item.id, note])
@@ -200,9 +211,10 @@ function TopicPage({ item, sectionId, go, note, saveNote, onAttempt }: { item: L
   const topic = isTopic(item) ? item : null
   const table = !topic ? item as GrammarTable : null
   const exercises = topic?.exercises ?? (table?.exercise ? [table.exercise] : [])
+  const missionIndex = missionWorld?.stops.findIndex((stop) => stop.kind === 'lesson' && stop.id === item.id) ?? -1
 
   return <main className={`page-shell topic-page ${showSpanish ? '' : 'hide-spanish'}`.trim()}>
-    <button className="back-button" onClick={() => go('#/library')}>← Library</button>
+    <button className="back-button" onClick={() => go(missionWorld ? `#/?world=${missionWorld.id}` : '#/library')}>{missionWorld ? '← Back to map' : '← Library'}</button>
     <section className="topic-hero"><div><div className="topic-meta"><span className="level-tag">{item.level}</span><span>{item.category}</span></div><h1>{item.title}</h1><p>{item.overview}</p>{showSpanish && <p className="spanish-overview" lang="es">{item.spanishOverview}</p>}</div><button className={`language-toggle ${showSpanish ? 'active' : ''}`} onClick={() => setShowSpanish((value) => !value)} aria-pressed={showSpanish}><span>ES</span> Spanish support {showSpanish ? 'visible' : 'hidden'}</button></section>
     <RoleLegend />
     <LessonVisual itemId={item.id} />
@@ -213,8 +225,13 @@ function TopicPage({ item, sectionId, go, note, saveNote, onAttempt }: { item: L
       {topic.traps.length > 0 && <section className="warning-panel"><p className="eyebrow">Common mistakes</p><SpanishHint>Errores comunes</SpanishHint>{topic.traps.map((trap) => <p key={trap}><span>!</span>{trap}</p>)}</section>}
     </>}
     {table && <><section className="panel"><p className="eyebrow">Quick reference</p><SpanishHint>Tabla rápida</SpanishHint><h2>{table.subtitle}</h2><div className="reference-table-wrap"><table><thead><tr><th>Key</th><th>Meaning or form</th><th>Example</th></tr></thead><tbody>{table.rows.map((row) => <tr key={`${row.left}-${row.middle}`}><td>{row.left}{row.spanishLeft && <SpanishHint>{row.spanishLeft}</SpanishHint>}</td><td>{row.middle}{row.spanishMiddle && <SpanishHint>{row.spanishMiddle}</SpanishHint>}</td><td>{row.right}{row.spanishRight && <SpanishHint>{row.spanishRight}</SpanishHint>}</td></tr>)}</tbody></table></div></section>{table.notes.length > 0 && <section className="warning-panel"><p className="eyebrow">Remember</p><SpanishHint>Recuerda</SpanishHint>{table.notes.map((entry) => <p key={entry}><span>!</span>{entry}</p>)}</section>}</>}
-    {(item.sections ?? []).length > 0 && <section className="deep-sections"><div className="section-heading"><div><p className="eyebrow">Linked sections</p><h2>Jump straight to the detail</h2><SpanishHint>Ve directo al detalle</SpanishHint></div><div className="anchor-list">{item.sections!.map((entry) => <button onClick={() => go(`#/topic/${item.id}?section=${entry.id}`)} key={entry.id}>#{entry.id}</button>)}</div></div>{item.sections!.map((entry) => <ReferenceSectionCard entry={entry} go={go} key={entry.id} />)}</section>}
+    {(item.sections ?? []).length > 0 && <section className="deep-sections"><div className="section-heading"><div><p className="eyebrow">Linked sections</p><h2>Jump straight to the detail</h2><SpanishHint>Ve directo al detalle</SpanishHint></div><div className="anchor-list">{item.sections!.map((entry) => <button onClick={() => go(`#/topic/${item.id}?section=${entry.id}${missionWorld ? `&world=${missionWorld.id}` : ''}`)} key={entry.id}>#{entry.id}</button>)}</div></div>{item.sections!.map((entry) => <ReferenceSectionCard entry={entry} go={go} key={entry.id} />)}</section>}
     {exercises.length > 0 && <div className="practice-grid">{exercises.map((exercise) => <ExercisePanel key={exercise.id} exercise={exercise} topicId={item.id} onAttempt={onAttempt} />)}</div>}
+    {missionWorld && <section className="mission-finish panel" aria-label="Mission progress">
+      <p role="status">{completed ? 'Mission cleared!' : exercises.length ? 'Answer a practice question correctly to clear this mission.' : 'Done reading? Mark this mission as read.'}</p>
+      {completed && <button className="quest-primary" onClick={() => go(missionWorld.stops[missionIndex + 1]?.route ?? `#/world/${missionWorld.id}/challenge`)}>Next mission →</button>}
+      {!completed && !exercises.length && <button className="quest-primary" onClick={() => onAttempt(item.id, true)}>Mark as read ✓</button>}
+    </section>}
     <section className="note-panel panel"><div><p className="eyebrow">My local note</p><SpanishHint>Mi nota local</SpanishHint><h2>Write what you want to remember</h2><SpanishHint>Escribe lo que quieres recordar</SpanishHint><p>It saves automatically in this browser only.<SpanishHint>Se guarda automáticamente sólo en este navegador.</SpanishHint></p></div><label className="sr-only" htmlFor="topic-note">Personal note about {item.title}</label><textarea id="topic-note" value={noteValue} onChange={(event) => setNoteValue(event.target.value)} placeholder="Example: at = a point; in = inside something…" rows={6} /><small>{noteValue === note ? 'Saved locally' : 'Saving…'}</small></section>
     <RelatedLinks item={item} go={go} />
   </main>
@@ -256,19 +273,20 @@ function App() {
   const go: Go = (next) => { if (window.location.hash === next) setRoute(readRoute()); else window.location.hash = next }
   const topicId = route.path.startsWith('/topic/') ? decodeURIComponent(route.path.replace('/topic/', '')) : undefined
   const item = topicId ? findItem(topicId) : undefined
+  const missionWorld = route.params.get('world') ? findWorld(route.params.get('world')!) : undefined
   const worldReviewMatch = route.path.match(/^\/world\/([^/]+)\/review\/([^/]+)$/)
 
   let content
   if (route.path === '/') content = <AdventureHome selectedWorld={route.params.get('world') ?? undefined} progress={progress} go={go} />
   else if (route.path === '/library') content = <Library go={go} selectedCategory={route.params.get('category') ?? undefined} />
-  else if (route.path === '/tenses') content = <main className="page-shell tense-page"><button className="back-button" onClick={() => go('#/?world=viaje-en-el-tiempo')}>← Desierto del tiempo</button><TenseMatrix go={go} /></main>
+  else if (route.path === '/tenses') content = <main className="page-shell tense-page"><button className="back-button" onClick={() => go('#/?world=viaje-en-el-tiempo')}>← Time Dunes</button><TenseMatrix go={go} /></main>
   else if (route.path === '/verbs') content = <VerbDictionary selectedId={route.params.get('verb') ?? undefined} go={go} />
   else if (route.path === '/review') content = <ReviewPage progress={progress} go={go} />
   else if (route.path.startsWith('/practice/verb/')) { const verbId = decodeURIComponent(route.path.replace('/practice/verb/', '')); content = worlds.some((world) => world.stops.some((stop) => stop.id === `verb:${verbId}`)) ? <VerbPractice key={verbId} verbId={verbId} progress={progress} onAttempt={recordAttempt} go={go} /> : <NotFound go={go} /> }
   else if (worldReviewMatch) { const worldId = decodeURIComponent(worldReviewMatch[1]); const reviewId = decodeURIComponent(worldReviewMatch[2]); content = findWorld(worldId)?.stops.some((stop) => stop.id === `review:${worldId}:${reviewId}`) ? <WorldReview key={`${worldId}:${reviewId}`} worldId={worldId} topicId={reviewId} progress={progress} onAttempt={recordAttempt} go={go} /> : <NotFound go={go} /> }
   else if (route.path.startsWith('/world/') && route.path.endsWith('/challenge')) { const worldId = decodeURIComponent(route.path.slice('/world/'.length, -'/challenge'.length)); content = findWorld(worldId) ? <WorldChallenge key={worldId} worldId={worldId} progress={progress} onAttempt={recordAttempt} go={go} /> : <NotFound go={go} /> }
   else if (route.path === '/data') content = <DataPage completed={worlds.flatMap((world) => world.stops).filter((stop) => progress.topics[stop.id]?.completed).length} attempts={summary.attempts} noteCount={summary.notes} exportProgress={exportProgress} importProgress={importProgress} resetProgress={resetProgress} />
-  else if (item) content = <TopicPage item={item} sectionId={route.params.get('section') ?? undefined} go={go} note={progress.notes[item.id]?.text ?? ''} saveNote={saveNote} onAttempt={recordAttempt} />
+  else if (item) content = <TopicPage item={item} sectionId={route.params.get('section') ?? undefined} go={go} note={progress.notes[item.id]?.text ?? ''} saveNote={saveNote} onAttempt={recordAttempt} missionWorld={missionWorld?.stops.some((stop) => stop.kind === 'lesson' && stop.id === item.id) ? missionWorld : undefined} completed={Boolean(progress.topics[item.id]?.completed)} />
   else content = <NotFound go={go} />
 
   return <div className="app-shell"><header className="site-header game-hud"><button className="brand game-brand" onClick={() => go('#/')} aria-label="Go to the GramLab world map"><span className="game-brand__tile" aria-hidden="true">GL</span><span><strong>GramLab</strong><small>ENGLISH QUEST</small></span></button><nav aria-label="Main navigation"><button className={route.path === '/' ? 'active' : ''} onClick={() => go('#/')}>Map</button><button className={route.path === '/library' || Boolean(item) ? 'active' : ''} onClick={() => go('#/library')}>Notes</button><button className={route.path === '/verbs' || route.path.startsWith('/practice/verb/') ? 'active' : ''} onClick={() => go('#/verbs')}>Verbs</button><button className={route.path === '/review' ? 'active' : ''} onClick={() => go('#/review')}>Review</button><button className={route.path === '/data' ? 'active' : ''} onClick={() => go('#/data')}>Save</button></nav><SearchBox go={go} compact /><button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`${theme === 'light' ? 'Dark' : 'Light'} mode`}><span aria-hidden="true">{theme === 'light' ? '◐' : '☀'}</span></button></header>{content}<footer><span><strong>GramLab</strong> · an English quest, saved locally</span><span>{allItems.length} notes · {irregularVerbs.length} verbs · offline</span></footer></div>

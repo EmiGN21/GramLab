@@ -73,7 +73,7 @@ export const worlds: LearningWorld[] = specs.map(({ lessonIds = [], reviewIds = 
   const lessons: WorldStop[] = lessonIds.map((id) => {
     const item = findItem(id)
     if (!item) throw new Error(`World ${world.id} references missing lesson ${id}`)
-    return { id, kind: 'lesson', title: item.title, subtitle: item.spanishOverview, route: `#/topic/${id}`, item }
+    return { id, kind: 'lesson', title: item.title, subtitle: item.spanishOverview, route: `#/topic/${id}?world=${world.id}`, item }
   })
   const reviews: WorldStop[] = reviewIds.map((id) => {
     const item = findItem(id)
