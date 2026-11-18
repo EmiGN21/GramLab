@@ -7,6 +7,7 @@ import App from './App'
 import './styles.css'
 import './editorial-v0.css'
 import './adventure.css'
+import './game-v1.css'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
