@@ -12,6 +12,7 @@
   --quest-red: #d96b4b;
   --quest-green: #65a76e;
   --quest-shadow: #22353a;
+  --quest-display: 'Pixelify Sans Variable', 'IBM Plex Sans Variable', sans-serif;
 }
 
 :root[data-theme='dark'] {
@@ -50,7 +51,7 @@
 .adventure-home--game { max-width: 1540px; padding-top: 30px; padding-bottom: 56px; }
 .adventure-intro--game { display: grid; grid-template-columns: minmax(0, 1fr) 185px; gap: 0 36px; align-items: stretch; margin: 0 0 25px; border: 3px solid var(--quest-line); background: var(--quest-paper); box-shadow: 6px 6px 0 var(--quest-shadow); }
 .adventure-intro__body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, auto); gap: 18px; align-items: center; padding: 23px 0 23px 23px; }
-.adventure-intro--game h1 { margin: 0 0 8px; color: var(--quest-ink); font-family: 'IBM Plex Sans Variable', sans-serif; font-size: clamp(31px, 4vw, 48px); font-weight: 740; line-height: 1; letter-spacing: -.055em; }
+.adventure-intro--game h1 { margin: 0 0 8px; color: var(--quest-ink); font-family: var(--quest-display); font-size: clamp(31px, 4.3vw, 54px); font-weight: 640; line-height: 1; letter-spacing: -.025em; }
 .adventure-intro--game p { color: var(--quest-muted); font-size: 14px; line-height: 1.5; }
 .adventure-intro--game [lang='es'] { display: block; color: var(--quest-muted); opacity: .7; font-size: 11px; line-height: 1.45; }
 .adventure-intro__actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
@@ -65,27 +66,32 @@
 .adventure-intro--game .adventure-intro__count strong { color: var(--quest-ink); font-size: 39px; font-weight: 760; }
 .adventure-intro--game .adventure-intro__count strong span { color: var(--quest-muted); font-size: 18px; }
 .adventure-intro--game .adventure-intro__count small { margin: 8px 0 13px; color: var(--quest-muted); font: 700 9px/1.3 ui-monospace, monospace; letter-spacing: .06em; text-transform: uppercase; }
+.adventure-intro--game .adventure-intro__count .adventure-intro__side-count { margin: 8px 0 0; }
 .adventure-intro--game .adventure-intro__count > div { height: 9px; overflow: hidden; border: 2px solid var(--quest-line); background: #fffdf0; }
 .adventure-intro--game .adventure-intro__count i { display: block; width: 100%; height: 100%; transform-origin: left; background: var(--quest-aqua); transition: transform .45s steps(8, end); }
 
 .world-atlas { margin: -6px 0 25px; padding: 22px; border: 3px solid var(--quest-line); background: var(--quest-night); box-shadow: 6px 6px 0 var(--quest-shadow); color: #fff8df; }
 .world-atlas__heading { display: flex; align-items: start; justify-content: space-between; gap: 20px; margin-bottom: 17px; }
-.world-atlas__heading h2 { margin: 8px 0 6px; color: #fff8df; font: 700 25px/1 'IBM Plex Sans Variable', sans-serif; letter-spacing: -.045em; }
+.world-atlas__heading h2 { margin: 8px 0 6px; color: #fff8df; font: 650 30px/1 var(--quest-display); letter-spacing: -.025em; }
 .world-atlas__heading p { margin: 0; color: #bbcbc5; font-size: 13px; }
 .world-atlas__heading > button { width: 35px; height: 35px; border: 2px solid #7e9a95; background: transparent; color: #fff8df; font-size: 22px; }
-.world-atlas__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.world-atlas__grid button { display: grid; grid-template-columns: 82px 1fr; gap: 12px; min-width: 0; padding: 7px; border: 2px solid #47636a; background: #1d2a32; color: #fff8df; text-align: left; }
-.world-atlas__grid button:hover, .world-atlas__grid button.is-active { border-color: var(--quest-gold); background: #2a3d43; }
-.world-atlas__grid img { width: 82px; height: 61px; object-fit: cover; image-rendering: pixelated; }
-.world-atlas__grid span { display: grid; align-content: center; gap: 4px; min-width: 0; }
-.world-atlas__grid small { color: var(--quest-gold); font: 700 9px/1 ui-monospace, monospace; }
-.world-atlas__grid strong { overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
-.world-atlas__grid em { color: #b8cbc4; font-size: 11px; font-style: normal; }
+.world-atlas__grid { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 16px; }
+.world-atlas__route { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.world-atlas__route path { fill: none; stroke: var(--quest-gold); stroke-width: 3; stroke-dasharray: 5 4; vector-effect: non-scaling-stroke; }
+.world-atlas__grid button { position: relative; isolation: isolate; grid-row: var(--atlas-row); grid-column: var(--atlas-column); display: grid; align-items: end; min-width: 0; min-height: 108px; overflow: hidden; padding: 10px; border: 2px solid #78948e; background: #1d2a32; color: #fff8df; text-align: left; }
+.world-atlas__grid button:hover, .world-atlas__grid button.is-active { border-color: var(--quest-gold); }
+.world-atlas__grid button:hover { translate: 0 -2px; box-shadow: 3px 3px 0 #091115; }
+.world-atlas__grid img { position: absolute; z-index: -2; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 45%; image-rendering: pixelated; }
+.world-atlas__grid button::after { position: absolute; z-index: -1; inset: 0; background: linear-gradient(0deg, #111b22 0%, #111b22d9 43%, #111b2220 100%); content: ''; }
+.world-atlas__grid span { display: grid; gap: 4px; min-width: 0; }
+.world-atlas__grid small { color: #ffe39e; font: 700 9px/1 ui-monospace, monospace; }
+.world-atlas__grid strong { font-size: 15px; }
+.world-atlas__grid em { color: #d3e2da; font-size: 11px; font-style: normal; }
 
 .world-section { position: relative; }
 .world-header--game { padding: 16px 18px 17px; border: 3px solid var(--quest-line); background: var(--quest-panel); box-shadow: 5px 5px 0 var(--quest-shadow); }
 .world-header--game .world-header__index { color: var(--quest-aqua); font: 750 10px/1 ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; }
-.world-header--game h2 { margin: 7px 0 4px; color: var(--quest-ink); font-family: 'IBM Plex Sans Variable', sans-serif; font-size: clamp(29px, 4vw, 45px); font-weight: 760; line-height: 1; letter-spacing: -.055em; }
+.world-header--game h2 { margin: 7px 0 4px; color: var(--quest-ink); font-family: var(--quest-display); font-size: clamp(29px, 4vw, 45px); font-weight: 640; line-height: 1; letter-spacing: -.025em; }
 .world-header--game p { margin-bottom: 4px; color: var(--quest-muted); font-size: 14px; }
 .world-header--game [lang='es'] { color: var(--quest-muted); opacity: .66; font-size: 11px; }
 .world-header--game .world-header__progress { width: 175px; }
@@ -98,17 +104,24 @@
 .map-stage.map-stage--quest { width: 100%; min-width: 650px; height: auto; aspect-ratio: 1200 / 820; background: #79a86f; }
 .map-stage--quest .map-backdrop { object-position: center 42%; image-rendering: pixelated; }
 .map-stage--quest::before { position: absolute; z-index: 1; inset: 0; background: linear-gradient(0deg, rgba(15, 29, 34, .23), transparent 35%); content: ''; pointer-events: none; }
-.map-pixel-cloud { position: absolute; z-index: 1; width: 68px; height: 22px; background: rgba(255, 253, 233, .72); box-shadow: 19px -11px 0 rgba(255, 253, 233, .72), 43px 0 0 rgba(255, 253, 233, .72); pointer-events: none; }
-.map-pixel-cloud--one { top: 88px; left: 175px; animation: quest-drift 17s linear infinite; }
-.map-pixel-cloud--two { top: 145px; right: 245px; opacity: .6; transform: scale(.72); animation: quest-drift 22s -8s linear infinite; }
+.map-weather { position: absolute; z-index: 1; width: 5px; height: 5px; background: currentColor; color: #fff2c2; box-shadow: 29px 25px currentColor, 105px -16px currentColor, 205px 28px currentColor, 340px -43px currentColor, 432px 16px currentColor; pointer-events: none; }
+.map-weather--one { top: 27%; left: 15%; animation: weather-drift 14s -5s steps(36, end) infinite; }
+.map-weather--two { top: 72%; left: 30%; animation: weather-drift 20s -11s steps(42, end) infinite; }
+.landscape-dunes .map-weather, .landscape-mars .map-weather { color: #ffd7a0; animation-name: weather-dust; }
+.landscape-ice .map-weather { color: #fff; animation-name: weather-snow; }
+.landscape-volcano .map-weather { color: #ffbc65; animation-name: weather-embers; }
+.landscape-gothic .map-weather { color: #d9b3ff; animation-name: weather-embers; }
 .quest-route { position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .quest-route__edge { fill: none; stroke: #254038; stroke-width: 28; stroke-linejoin: round; stroke-linecap: square; }
-.quest-route__bed { fill: none; stroke: #f5d98f; stroke-width: 20; stroke-linejoin: round; stroke-linecap: square; }
+.quest-route__bed { fill: none; stroke: var(--trail-color); stroke-width: 20; stroke-linejoin: round; stroke-linecap: square; }
 .quest-route__dash { fill: none; stroke: #fff5ca; stroke-width: 3; stroke-dasharray: 13 12; stroke-linecap: square; animation: route-dash 1.6s linear infinite; }
+.quest-route__branch-shadow, .quest-route__branch { fill: none; stroke-dasharray: 9 11; stroke-linecap: square; }
+.quest-route__branch-shadow { stroke: #17202a; stroke-width: 13; }
+.quest-route__branch { stroke: var(--trail-color); stroke-width: 5; }
 .quest-checkpoint { position: absolute; z-index: 4; display: grid; justify-items: center; gap: 6px; width: max-content; padding: 0; transform: translate(-50%, calc(var(--checkpoint-size) / -2)); border: 0; background: transparent; color: #1c2a31; text-align: center; transition: translate .16s steps(2, end); --checkpoint-size: clamp(44px, 4vw, 58px); }
 .quest-checkpoint:hover, .quest-checkpoint.is-selected { translate: 0 -4px; }
 .quest-checkpoint:focus-visible { outline: 3px solid #fff5be; outline-offset: 5px; }
-.quest-checkpoint__orb { display: grid; place-items: center; width: var(--checkpoint-size); height: var(--checkpoint-size); border: 4px solid #28483b; background: #fff1b6; box-shadow: 4px 5px 0 rgba(20, 50, 41, .7), inset 0 0 0 5px #ffe080; color: #28483b; font: 800 15px/1 ui-monospace, monospace; }
+.quest-checkpoint__orb { display: grid; place-items: center; width: var(--checkpoint-size); height: var(--checkpoint-size); border: 4px solid #28483b; background: #fff1b6; box-shadow: 4px 5px 0 rgba(20, 50, 41, .7), inset 0 0 0 5px #ffe080; color: #28483b; font: 700 20px/1 var(--quest-display); }
 .quest-checkpoint.is-current .quest-checkpoint__orb { background: #8de0d3; box-shadow: 4px 5px 0 rgba(20, 50, 41, .75), inset 0 0 0 5px #75d4c6; color: #193633; animation: checkpoint-beacon 1.15s steps(2, end) infinite; }
 .quest-checkpoint.is-complete .quest-checkpoint__orb { background: var(--quest-green); box-shadow: 4px 5px 0 rgba(20, 50, 41, .75), inset 0 0 0 5px #b6e19c; color: #163b2c; }
 .quest-checkpoint.is-selected .quest-checkpoint__orb { outline: 4px solid #fffdf0; outline-offset: 4px; }
@@ -116,13 +129,18 @@
 .quest-checkpoint__copy strong { font-size: 12px; font-weight: 790; line-height: 1.1; }
 .quest-checkpoint__copy small { color: #526560; font: 700 9px/1 ui-monospace, monospace; letter-spacing: .02em; }
 .guide-figure--quest { z-index: 6; width: 7.2%; height: 14%; filter: drop-shadow(4px 5px 0 rgba(25, 50, 32, .7)); animation: guide-idle 1s steps(2, end) infinite; }
-.map-object { position: absolute; z-index: 4; display: grid; gap: 4px; justify-items: center; padding: 0; border: 0; background: transparent; color: #173c32; font: 800 9px/1 ui-monospace, monospace; text-shadow: 1px 1px #fff9da; }
-.map-object span:first-child { display: grid; place-items: center; width: 36px; height: 36px; border: 3px solid #244338; background: #f7c853; box-shadow: 3px 3px 0 #244338; color: #254038; font-size: 19px; }
-.map-object--lantern span:first-child { border-color: #353642; background: #ffd35c; box-shadow: 0 0 0 5px rgba(255, 220, 114, .26), 3px 3px 0 #353642; }
-.map-object--lantern[aria-pressed='true'] span:first-child { background: #fff0a1; box-shadow: 0 0 0 8px #ffe08277, 0 0 23px 12px #ffd35c99, 3px 3px 0 #353642; animation: lantern-light .6s steps(4, end); }
-.map-object:hover { transform: translateY(-4px); }
-.map-object:active { transform: translateY(2px); }
+.map-object { position: absolute; z-index: 4; display: grid; gap: 5px; justify-items: center; width: max-content; padding: 0; transform: translate(-50%, -22px); border: 0; background: transparent; color: #173c32; font: 800 10px/1 ui-monospace, monospace; }
+.map-object__tile { display: grid; place-items: center; width: 44px; height: 44px; border: 3px solid #17202a; background: var(--trail-color); box-shadow: 3px 3px 0 #17202a; color: #17202a; font-size: 20px; }
+.map-object__label { padding: 4px 6px; border: 1px solid #17202a; background: #fff8df; color: #17202a; }
+.map-object__check { position: absolute; top: -7px; right: 6%; padding: 4px; border: 2px solid #17202a; background: #a8db9b; color: #17202a; }
+.map-object__hint { position: absolute; z-index: 1; top: calc(100% + 8px); width: 175px; padding: 9px; border: 2px solid var(--trail-color); background: #17202a; color: #fff8df; font: 500 12px/1.35 'IBM Plex Sans Variable', sans-serif; text-align: left; pointer-events: none; animation: sign-open .2s steps(4, end); }
+.map-object--sign[aria-expanded='true'] { z-index: 7; }
+.map-object--relic[aria-pressed='true'] .map-object__tile { outline: 2px solid #fffdf0; outline-offset: 3px; box-shadow: 0 0 22px 5px var(--trail-color); animation: relic-activate .55s steps(4, end); }
+.map-object:hover { translate: 0 -4px; }
+.map-object:active { translate: 0 2px; }
 .map-object:focus-visible { outline: 3px solid #fff5be; outline-offset: 5px; }
+.relic-sprite { display: grid; grid-template-columns: repeat(7, 1fr); width: var(--sprite-size, 28px); height: var(--sprite-size, 28px); color: inherit; }
+.relic-sprite .is-filled { background: currentColor; }
 .map-castle--quest { z-index: 5; min-width: 0; gap: 4px; transform: translate(-50%, -32%); color: #bb5f3d; }
 .map-castle--quest svg { width: clamp(35px, 4vw, 58px); height: auto; }
 .map-castle--quest span { border-color: #28483b; border-radius: 0; box-shadow: 3px 3px 0 rgba(20, 50, 41, .6); }
@@ -133,17 +151,24 @@
 .mission-console { display: grid; align-content: start; min-width: 0; background: var(--quest-night); color: #fff8df; }
 .mission-console__top { display: flex; justify-content: space-between; padding: 15px 15px 12px; border-bottom: 2px solid #405c60; color: var(--quest-gold); font: 750 10px/1 ui-monospace, monospace; letter-spacing: .1em; }
 .mission-console__top strong { color: #d8ebe1; font: inherit; }
-.mission-console__minimap { position: relative; isolation: isolate; min-height: 132px; margin: 12px 13px 0; border: 2px solid #6f938e; background-color: #293e41; background-position: center; background-size: cover; }
+.mission-console__minimap { position: relative; isolation: isolate; min-height: 152px; margin: 12px 13px 0; border: 2px solid #6f938e; background-color: #293e41; background-position: center; background-size: cover; }
 .mission-console__minimap::before { position: absolute; z-index: -1; inset: 0; background: #17202a94; content: ''; }
 .mission-console__minimap > span { position: absolute; top: 6px; left: 6px; padding: 4px 6px; background: #17202a; color: #fff8df; font: 700 9px/1 ui-monospace, monospace; letter-spacing: .1em; }
 .mission-console__minimap svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.mission-console__minimap path { fill: none; stroke: #ffe39e; stroke-width: 3; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.mission-console__minimap path { fill: none; stroke: var(--trail-color); stroke-width: 3; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.mission-console__minimap path.minimap__branch { stroke: #faffef; stroke-width: 2; }
 .mission-console__minimap button { position: absolute; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; transform: translate(-50%, -50%); border: 2px solid #17202a; background: #fff4d4; box-shadow: 2px 2px 0 #17202a; color: #18262b; font: 800 13px/1 ui-monospace, monospace; }
 .mission-console__minimap button.is-complete { background: #a8db9b; }
+.mission-console__minimap button.minimap__relic { --sprite-size: 18px; border-color: var(--trail-color); background: #17202a; color: var(--trail-color); }
+.mission-console__minimap button.minimap__relic.is-complete { color: #a8db9b; }
+.mission-console__minimap button.minimap__relic[aria-pressed='true'] { background: var(--trail-color); color: #17202a; }
 .mission-console__minimap button[aria-pressed='true'] { z-index: 1; outline: 2px solid #fff6d1; outline-offset: 1px; background: #ffd36c; }
 .mission-console__minimap button:hover { translate: 0 -2px; }
 .mission-console__minimap button:focus-visible { z-index: 2; outline: 3px solid #fff; outline-offset: 4px; }
 .mission-console__summary { margin: 14px 16px; }
+.mission-console__side { padding: 14px 16px; border-block: 1px solid #405c60; }
+.mission-console__side p { margin: 0 0 4px; font-size: 14px; line-height: 1.45; }
+.mission-console__side small { color: #b9c8c5; font-size: 11px; }
 .mission-console h3 { margin: 0 0 5px; font: 740 23px/1 'IBM Plex Sans Variable', sans-serif; letter-spacing: -.045em; }
 .mission-console__summary p, .mission-console__tip { margin: 0; color: #c6dcd3; font-size: 12px; line-height: 1.45; }
 .mission-console__tip { margin: 0 16px 14px; }
@@ -191,13 +216,22 @@
 .challenge-heading svg { color: var(--quest-gold); }
 .challenge-count > div { border: 2px solid var(--quest-line); border-radius: 0; background: var(--quest-paper); }
 .challenge-count i { border-radius: 0; background: var(--quest-aqua); }
+.field-page__item { display: flex; gap: 12px; align-items: center; }
+.field-page__item .relic-sprite { --sprite-size: 36px; padding: 6px; box-sizing: content-box; border: 2px solid #17202a; background: var(--trail-color); box-shadow: 3px 3px 0 var(--quest-shadow); color: #17202a; }
+.field-page .practice-question { margin-top: 24px; }
+.field-page .practice-question > .adventure-tag { display: block; margin-bottom: 10px; }
+.field-page .practice-question > p { color: var(--quest-muted); }
 
 @keyframes route-dash { to { stroke-dashoffset: -25; } }
 @keyframes checkpoint-beacon { 0%, 100% { box-shadow: 4px 5px 0 rgba(20, 50, 41, .75), 0 0 0 0 rgba(255, 245, 190, .75), inset 0 0 0 5px #75d4c6; } 50% { box-shadow: 4px 5px 0 rgba(20, 50, 41, .75), 0 0 0 8px rgba(255, 245, 190, 0), inset 0 0 0 5px #75d4c6; } }
 @keyframes guide-idle { 50% { transform: translateY(-4px); } }
-@keyframes quest-drift { from { transform: translateX(-80px); } to { transform: translateX(1250px); } }
+@keyframes weather-drift { 0%, 100% { opacity: 0; } 30%, 72% { opacity: .6; } 100% { transform: translate(90px, -18px); } }
+@keyframes weather-dust { 0%, 100% { opacity: 0; } 33%, 65% { opacity: .75; } 100% { transform: translate(125px, 5px); } }
+@keyframes weather-snow { 0%, 100% { opacity: 0; } 30%, 78% { opacity: .8; } 100% { transform: translate(13px, 100px); } }
+@keyframes weather-embers { 0%, 100% { opacity: 0; } 25%, 72% { opacity: .9; } 100% { transform: translate(-34px, -115px); } }
+@keyframes sign-open { from { opacity: .4; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes quest-spark { 0% { transform: translateY(3px) rotate(-8deg); } 100% { transform: translateY(-5px) rotate(8deg); } }
-@keyframes lantern-light { from { filter: brightness(1.5); } to { filter: brightness(1); } }
+@keyframes relic-activate { 0% { scale: .9; } 40% { scale: 1.17; filter: brightness(1.3); } 100% { scale: 1; } }
 
 @media (max-width: 1180px) {
   .site-header.game-hud { grid-template-columns: 200px 1fr 42px; }
@@ -209,7 +243,7 @@
   .mission-console { grid-template-columns: minmax(245px, 1fr) minmax(0, 1fr); min-height: 0; }
   .mission-console__top { grid-column: 1 / -1; }
   .mission-console__minimap { grid-column: 1; grid-row: 2 / 4; margin-bottom: 12px; }
-  .mission-console__summary, .mission-console__list { grid-column: 2; }
+  .mission-console__summary, .mission-console__list, .mission-console__side { grid-column: 2; }
   .mission-console__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mission-console__list button { border-right: 1px solid #405c60; }
   .mission-console__continue { grid-column: 1 / -1; margin-top: 13px; }
@@ -224,9 +258,8 @@
   .adventure-intro--game { grid-template-columns: 1fr; }
   .adventure-intro__body { grid-template-columns: 1fr; padding: 16px; }
   .adventure-intro--game .adventure-intro__count { min-height: 0; border-top: 2px solid var(--quest-line); border-left: 0; }
-  .world-atlas__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mission-console { grid-template-columns: 1fr; }
-  .mission-console__minimap, .mission-console__summary, .mission-console__list { grid-column: 1; grid-row: auto; }
+  .mission-console__minimap, .mission-console__summary, .mission-console__list, .mission-console__side { grid-column: 1; grid-row: auto; }
   .mission-console__minimap { margin-bottom: 0; }
   .mission-console__list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .world-underbar--game { align-items: start; }
@@ -239,7 +272,9 @@
   .adventure-intro--game .adventure-intro__count { min-height: 0; padding: 13px 19px; }
   .adventure-intro--game .adventure-intro__count strong { font-size: 25px; }
   .world-atlas { padding: 15px; }
-  .world-atlas__grid { grid-template-columns: 1fr; }
+  .world-atlas__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .world-atlas__route { display: none; }
+  .world-atlas__grid button { grid-area: auto; min-height: 100px; }
   .world-header--game { align-items: start; }
   .world-header--game .world-header__progress { width: 86px; flex: 0 0 86px; }
   .mission-console__minimap { margin-inline: 8px; }
@@ -248,6 +283,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .quest-route__dash, .guide-figure--quest, .map-pixel-cloud, .quest-checkpoint.is-current .quest-checkpoint__orb, .completion-burst span, .map-object--lantern[aria-pressed='true'] span:first-child { animation: none; }
+  .quest-route__dash, .guide-figure--quest, .map-weather, .quest-checkpoint.is-current .quest-checkpoint__orb, .completion-burst span, .map-object__hint, .map-object--relic[aria-pressed='true'] .map-object__tile { animation: none; }
   .quest-primary, .quest-secondary, .quest-checkpoint, .mission-console__continue { transition: none; }
 }

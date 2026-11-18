@@ -4,6 +4,7 @@ import { dirname, extname, resolve } from 'node:path'
 const dist = resolve('dist')
 const indexPath = resolve(dist, 'index.html')
 const index = await readFile(indexPath, 'utf8')
+const fontLicense = await readFile(new URL(import.meta.resolve('@fontsource-variable/pixelify-sans/LICENSE')), 'utf8')
 
 const stylesheetMatch = index.match(/<link rel="stylesheet"[^>]*href="\.\/(assets\/[^\"]+\.css)"[^>]*>/)
 const scriptMatch = index.match(/<script type="module"[^>]*src="\.\/(assets\/[^\"]+\.js)"><\/script>/)
@@ -63,7 +64,7 @@ const portable = index
   .replace(stylesheetMatch[0], () => `<style>\n${css}\n</style>`)
   .replace(scriptMatch[0], '')
   .replace('</body>', () => `${inlineScript}\n  </body>`)
-  .replace('<title>GramLab · aprende explorando</title>', '<title>GramLab · aprende explorando</title>\n    <meta name="gramlab-build" content="portable-offline" />')
+  .replace('</head>', () => `    <meta name="gramlab-build" content="portable-offline" />\n    <!--\n${fontLicense}\n    -->\n  </head>`)
   .replace(/^[ \t]+$/gm, '')
 
 if (/<(?:script|link)\b[^>]*(?:src|href)="\.\/assets\//.test(portable)) {
@@ -75,4 +76,5 @@ if (/url\((?:['"]?)\.\//.test(portable)) {
 }
 
 await writeFile(resolve(dist, 'gramlab.html'), portable, 'utf8')
+await writeFile(resolve(dist, 'Pixelify-Sans-LICENSE.txt'), fontLicense, 'utf8')
 console.log('Created dist/gramlab.html - a standalone offline file.')

@@ -14,6 +14,9 @@ importers:
       '@fontsource-variable/literata':
         specifier: 5.3.0
         version: 5.3.0
+      '@fontsource-variable/pixelify-sans':
+        specifier: 5.3.0
+        version: 5.3.0
       react:
         specifier: ^19.2.8
         version: 19.2.8
@@ -44,6 +47,9 @@ packages:
 
   '@fontsource-variable/literata@5.3.0':
     resolution: {integrity: sha512-1Jw7xvOcoGyB83lxB2nG4bfNbqtX2/TTbdh9sHAOmU064SvmSdulDtA5RBu5JYWf64fdaKX7xU+z3GO1T2bCHA==}
+
+  '@fontsource-variable/pixelify-sans@5.3.0':
+    resolution: {integrity: sha512-rOF07QCyHg9xb4UZF3lpXOM4UO+zo3y8tXvO7T+vy40GVt/GU8HL+/YWE029CMsbhOwk4plRDY9G8BU5cWs1ig==}
 
   '@oxc-project/types@0.147.0':
     resolution: {integrity: sha512-IJ3s6ltHLp45S0bh7phkX+gJO7A1Wuz2EaqpAhb8WjqDwbzMiWKHhyyT42tskaWjEYXtHtVCPpnBJVT9+dcRLg==}
@@ -480,6 +486,8 @@ snapshots:
   '@fontsource-variable/ibm-plex-sans@5.3.0': {}
 
   '@fontsource-variable/literata@5.3.0': {}
+
+  '@fontsource-variable/pixelify-sans@5.3.0': {}
 
   '@oxc-project/types@0.147.0': {}
 

@@ -3,6 +3,8 @@ import { allItems } from './data/catalog'
 import { findWorld, worlds } from './data/worlds'
 import type { LearningWorld, WorldStop } from './data/worlds'
 import type { ProgressRecord } from './types'
+import type { CSSProperties, KeyboardEvent } from 'react'
+import { fieldMissionId, fieldMissionRoute, mapHeight, mapWidth, traceRoute, worldTrails } from './data/world-trails'
 import teacher from './assets/profesor-guia-pixel.png'
 import meadowArt from './assets/world-meadow-pixel.png'
 import dunesArt from './assets/world-dunes-pixel.png'
@@ -29,25 +31,20 @@ const landscapeArt: Record<string, string> = {
   gothic: gothicArt,
 }
 
-const worldCopy: Record<string, { name: string; subtitle: string; terrain: string; landmark: string }> = {
-  'primeros-pasos': { name: 'First Steps', subtitle: 'Build your first English sentences.', terrain: 'meadow route', landmark: 'The Grammar Gate' },
-  'viaje-en-el-tiempo': { name: 'Time Dunes', subtitle: 'Travel through present, past, and future.', terrain: 'sand route', landmark: 'The Clock Tower' },
-  'vida-y-lugares': { name: 'Everyday Coast', subtitle: 'Move through places, errands, and daily life.', terrain: 'coast route', landmark: 'The Harbour Post' },
-  conversaciones: { name: 'Conversation Grove', subtitle: 'Ask, connect, and shape your ideas.', terrain: 'forest route', landmark: 'The Echo Camp' },
-  'mas-alla': { name: 'Beyond the Ridge', subtitle: 'Tackle longer forms and sharper structures.', terrain: 'highland route', landmark: 'The Signal Peak' },
-  'cumbres-de-hielo': { name: 'Ice Summits', subtitle: 'Review time forms in clear, cold air.', terrain: 'ice route', landmark: 'The Crystal Lodge' },
-  'caldera-de-lava': { name: 'Lava Caldera', subtitle: 'Test the structures that need courage.', terrain: 'volcanic route', landmark: 'The Ember Forge' },
-  'marte-rojo': { name: 'Red Planet', subtitle: 'Explore locations and useful new words.', terrain: 'red route', landmark: 'The Rover Beacon' },
-  'jardin-de-sombras': { name: 'Shadow Garden', subtitle: 'Solve language clues in moonlit ruins.', terrain: 'night route', landmark: 'The Moon Archive' },
+const worldCopy: Record<string, { name: string; subtitle: string }> = {
+  'primeros-pasos': { name: 'First Steps', subtitle: 'Build your first English sentences.' },
+  'viaje-en-el-tiempo': { name: 'Time Dunes', subtitle: 'Travel through present, past, and future.' },
+  'vida-y-lugares': { name: 'Everyday Coast', subtitle: 'Move through places, errands, and daily life.' },
+  conversaciones: { name: 'Conversation Grove', subtitle: 'Ask, connect, and shape your ideas.' },
+  'mas-alla': { name: 'Beyond the Ridge', subtitle: 'Tackle longer forms and sharper structures.' },
+  'cumbres-de-hielo': { name: 'Ice Summits', subtitle: 'Review time forms in clear, cold air.' },
+  'caldera-de-lava': { name: 'Lava Caldera', subtitle: 'Test the structures that need courage.' },
+  'marte-rojo': { name: 'Red Planet', subtitle: 'Explore locations and useful new words.' },
+  'jardin-de-sombras': { name: 'Shadow Garden', subtitle: 'Solve language clues in moonlit ruins.' },
 }
 
-const chapterPositions = [
-  { x: 142, y: 672 }, { x: 354, y: 478 }, { x: 610, y: 590 }, { x: 842, y: 365 }, { x: 1036, y: 184 },
-]
-
-const chapterTitles = ['Trailhead', 'Practice Camp', 'Signal Crossing', 'Grammar Rise', 'Final Ascent']
-const routePath = 'M142 672 C 220 640 272 520 354 478 S 528 556 610 590 S 754 432 842 365 S 970 272 1036 184'
-const mapPoint = (x: number, y: number) => ({ left: `${x / 12}%`, top: `${y / 8.2}%` })
+const mapPoint = (x: number, y: number) => ({ left: `${100 * x / mapWidth}%`, top: `${100 * y / mapHeight}%` })
+const atlasColumns = [1, 2, 3, 3, 2, 1, 1, 2, 3]
 
 const labelForStop = (stop: WorldStop) => stop.kind === 'verb' ? 'Verb mission' : stop.kind === 'review' ? 'Review mission' : 'Grammar mission'
 const kindSymbol = (stop: WorldStop) => stop.kind === 'verb' ? 'V' : stop.kind === 'review' ? 'R' : 'G'
@@ -58,92 +55,140 @@ function CastleIcon({ className = '' }: { className?: string }) {
   return <svg className={className} viewBox="0 0 72 72" fill="none" aria-hidden="true"><path d="M8 23V12h12v7h10v-7h12v7h10v-7h12v11l-5 5v32H13V28l-5-5Z" fill="currentColor"/><path d="M28 60V45a8 8 0 0 1 16 0v15" fill="var(--castle-door, #f8f3e8)"/><path d="M8 28h56M20 12v16M42 12v16M52 12v16" stroke="var(--castle-lines, #f8f3e8)" strokeWidth="2"/></svg>
 }
 
-function RouteLine() {
-  return <svg className="quest-route" viewBox="0 0 1200 820" preserveAspectRatio="none" aria-hidden="true"><path d={routePath} className="quest-route__edge"/><path d={routePath} className="quest-route__bed"/><path d={routePath} className="quest-route__dash"/></svg>
+function RouteLine({ route, branch }: { route: string; branch: string }) {
+  return <svg className="quest-route" viewBox={`0 0 ${mapWidth} ${mapHeight}`} preserveAspectRatio="none" aria-hidden="true">
+    <path d={route} className="quest-route__edge" />
+    <path d={route} className="quest-route__bed" />
+    <path d={route} className="quest-route__dash" />
+    <path d={branch} className="quest-route__branch-shadow" />
+    <path d={branch} className="quest-route__branch" />
+  </svg>
 }
 
-function WorldMap({ world, progress, go, onTravel }: { world: LearningWorld; progress: ProgressRecord; go: Go; onTravel: () => void }) {
+function RelicSprite({ pixels }: { pixels: readonly string[] }) {
+  return <span className="relic-sprite" aria-hidden="true">
+    {[...pixels.join('')].map((pixel, index) => <i key={index} className={pixel === '#' ? 'is-filled' : undefined} />)}
+  </span>
+}
+
+function WorldMap({ world, progress, go, onTravel, showField }: { world: LearningWorld; progress: ProgressRecord; go: Go; onTravel: () => void; showField: boolean }) {
+  const { checkpoints, mission, color, sign, gate } = worldTrails[world.id]
+  const routePath = traceRoute(checkpoints.map(([, x, y]) => [x, y]))
+  const [, branchX, branchY] = checkpoints[mission.branchFrom]
+  const branchPath = traceRoute([[branchX, branchY], mission.position])
   const mapScrollRef = useRef<HTMLDivElement>(null)
   const chapters = useMemo(() => chunkStops(world), [world])
   const done = world.stops.filter((stop) => progress.topics[stop.id]?.completed).length
   const currentIndex = world.stops.findIndex((stop) => !progress.topics[stop.id]?.completed)
   const currentChapter = Math.min(chapters.length - 1, Math.max(0, Math.floor((currentIndex === -1 ? world.stops.length - 1 : currentIndex) / 4)))
-  const [selectedChapter, setSelectedChapter] = useState(currentChapter)
-  const [mapMessage, setMapMessage] = useState('Pick a checkpoint to open its mission list.')
-  const [lanternLit, setLanternLit] = useState(false)
+  const [selection, setSelection] = useState<number | 'field'>(showField ? 'field' : currentChapter)
+  const fieldSelected = selection === 'field'
+  const selectedChapter = selection === 'field' ? mission.branchFrom : selection
+  const sideTrailMessage = `The dotted trail branches off at ${checkpoints[mission.branchFrom][0]}.`
+  const [mapMessage, setMapMessage] = useState(showField ? sideTrailMessage : 'Choose a checkpoint to open its missions, or follow the dotted side trail.')
+  const [signRead, setSignRead] = useState(false)
   useEffect(() => {
     const map = mapScrollRef.current
-    if (map) map.scrollLeft = map.scrollWidth * chapterPositions[currentChapter].x / 1200 - map.clientWidth / 2
-  }, [currentChapter])
+    const x = showField ? mission.position[0] : checkpoints[currentChapter][1]
+    if (map) map.scrollLeft = map.scrollWidth * x / mapWidth - map.clientWidth / 2
+  }, [currentChapter, checkpoints, mission, showField])
   const selectedStops = chapters[selectedChapter]
   const selectedDone = selectedStops.filter((stop) => progress.topics[stop.id]?.completed).length
-  const characterPosition = chapterPositions[selectedChapter]
+  const [, checkpointX, checkpointY] = checkpoints[selectedChapter]
+  const [guideX, guideY] = fieldSelected ? mission.position : [checkpointX, checkpointY]
   const challengeDone = Boolean(progress.topics[`world:${world.id}`]?.completed)
+  const fieldDone = Boolean(progress.topics[fieldMissionId(world.id)]?.completed)
   const copy = worldCopy[world.id]
 
-  function selectChapter(index: number, panMap = false) {
-    setSelectedChapter(index)
-    setMapMessage(`${chapterTitles[index]} has ${chapters[index].length} missions.`)
+  function selectStop(next: number | 'field', panMap = false) {
+    setSelection(next)
+    setMapMessage(next === 'field' ? sideTrailMessage : `${checkpoints[next][0]} has ${chapters[next].length} missions.`)
     const map = mapScrollRef.current
     if (!panMap || !map) return
-    const left = map.scrollWidth * chapterPositions[index].x / 1200 - map.clientWidth / 2
+    const x = next === 'field' ? mission.position[0] : checkpoints[next][1]
+    const left = map.scrollWidth * x / mapWidth - map.clientWidth / 2
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     map.scrollTo({ left, behavior: reduceMotion ? 'instant' : 'smooth' })
   }
 
-  return <section className="world-section" aria-labelledby="world-title">
+  function moveInMinimap(event: KeyboardEvent<HTMLElement>) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    const buttons = [...event.currentTarget.querySelectorAll('button')]
+    const index = buttons.findIndex((button) => button === event.target)
+    if (index === -1) return
+    event.preventDefault()
+    const next = index + (event.key === 'ArrowLeft' ? -1 : 1)
+    const button = buttons[(next + buttons.length) % buttons.length]
+    button.focus()
+    button.click()
+  }
+
+  return <section className="world-section" aria-labelledby="world-title" style={{ '--trail-color': color } as CSSProperties}>
     <div className="world-header world-header--game">
-      <div><span className="world-header__index">World {String(worlds.indexOf(world) + 1).padStart(2, '0')} / {String(worlds.length).padStart(2, '0')}</span><h2 id="world-title">{copy.name}</h2><p>{copy.subtitle}</p><small lang="es">{world.name} · {world.subtitle}</small></div>
+      <div><span className="world-header__index">World {String(worlds.indexOf(world) + 1).padStart(2, '0')} / {String(worlds.length).padStart(2, '0')}</span><h2 id="world-title" tabIndex={-1}>{copy.name}</h2><p>{copy.subtitle}</p><small lang="es">{world.name} · {world.subtitle}</small></div>
       <div className="world-header__progress"><strong>{done}<span> / {world.stops.length}</span></strong><small>missions practised</small><div className="world-progress-track"><span style={{ transform: `scaleX(${done / world.stops.length})` }} /></div></div>
     </div>
     <div className="quest-frame">
       <div ref={mapScrollRef} className="map-scroll" role="region" aria-label={`${copy.name} mission map; choose a checkpoint to see its four missions`} tabIndex={0}>
       <div className={`map-stage map-stage--quest landscape-${world.landscape}`}>
         <img className="map-backdrop" src={landscapeArt[world.landscape]} alt="" aria-hidden="true" />
-        <span className="map-pixel-cloud map-pixel-cloud--one" aria-hidden="true" /><span className="map-pixel-cloud map-pixel-cloud--two" aria-hidden="true" />
-        <RouteLine />
+        <span className="map-weather map-weather--one" aria-hidden="true" />
+        <span className="map-weather map-weather--two" aria-hidden="true" />
+        <RouteLine route={routePath} branch={branchPath} />
         {chapters.map((stops, index) => {
-          const position = chapterPositions[index]
+          const [title, x, y] = checkpoints[index]
           const completed = stops.filter((stop) => progress.topics[stop.id]?.completed).length
           const isCurrent = index === currentChapter
-          return <button key={index} className={`quest-checkpoint ${selectedChapter === index ? 'is-selected' : ''} ${isCurrent ? 'is-current' : ''} ${completed === stops.length ? 'is-complete' : ''}`} style={mapPoint(position.x, position.y)} onClick={() => selectChapter(index)} aria-pressed={selectedChapter === index}>
-            <span className="quest-checkpoint__orb">{completed === stops.length ? '✓' : String(index + 1).padStart(2, '0')}</span><span className="quest-checkpoint__copy"><strong>{chapterTitles[index]}</strong><small>{completed}/{stops.length} missions</small></span>
+          return <button key={index} className={`quest-checkpoint ${selection === index ? 'is-selected' : ''} ${isCurrent ? 'is-current' : ''} ${completed === stops.length ? 'is-complete' : ''}`} style={mapPoint(x, y)} onClick={() => selectStop(index)} aria-pressed={selection === index}>
+            <span className="quest-checkpoint__orb">{completed === stops.length ? '✓' : String(index + 1).padStart(2, '0')}</span><span className="quest-checkpoint__copy"><strong>{title}</strong><small>{completed}/{stops.length} missions</small></span>
           </button>
         })}
-        <div className="guide-figure guide-figure--quest" style={mapPoint(characterPosition.x + (selectedChapter === chapters.length - 1 ? -130 : 62), characterPosition.y - 92)} aria-hidden="true"><img src={teacher} alt="" /></div>
-        <button className="map-object map-object--sign" style={mapPoint(520, 170)} onClick={() => setMapMessage(`Look for G for grammar, V for verbs, and R for review. ${copy.landmark} is ahead.`)}><span aria-hidden="true">?</span><span>Trail sign</span></button>
-        <button className="map-object map-object--lantern" style={mapPoint(742, 690)} aria-pressed={lanternLit} onClick={() => {
-          setLanternLit(!lanternLit)
-          setMapMessage(lanternLit ? 'Lantern out.' : 'Lantern lit. If you get stuck, open the grammar note for a clue.')
-        }}><span aria-hidden="true">✦</span><span>Language lantern</span></button>
-        <button className={`map-castle map-castle--quest ${challengeDone ? 'is-complete' : ''}`} style={mapPoint(1042, 78)} onClick={() => go(`#/world/${world.id}/challenge`)}>
+        <div className="guide-figure guide-figure--quest" style={mapPoint(guideX + (guideX > 970 ? -128 : 47), guideY - 95)} aria-hidden="true"><img src={teacher} alt="" /></div>
+        <button className="map-object map-object--sign" style={mapPoint(...sign)} aria-label="Trail sign" aria-expanded={signRead} onClick={() => {
+          setSignRead(!signRead)
+          setMapMessage(signRead ? 'Trail sign closed.' : mission.hint)
+        }}>
+          <span className="map-object__tile" aria-hidden="true">?</span><span className="map-object__label">Trail sign</span>
+          {signRead && <span className="map-object__hint">{mission.hint}</span>}
+        </button>
+        <button className={`map-object map-object--relic ${fieldDone ? 'is-complete' : ''}`} style={mapPoint(...mission.position)} aria-pressed={fieldSelected} onClick={() => selectStop('field')}>
+          <span className="map-object__tile"><RelicSprite pixels={mission.sprite} /></span><span className="map-object__label">{mission.object}</span>
+          {fieldDone && <span className="map-object__check" aria-label="Cleared">✓</span>}
+        </button>
+        <button className={`map-castle map-castle--quest ${challengeDone ? 'is-complete' : ''}`} style={mapPoint(...gate)} onClick={() => go(`#/world/${world.id}/challenge`)}>
           <CastleIcon /><span><strong>World challenge</strong><small>{challengeDone ? 'Cleared' : '5 questions · always open'}</small></span>
         </button>
       </div>
       </div>
       <aside className="mission-console" aria-label="Mission log">
-        <div className="mission-console__top"><span>MISSION LOG</span><strong>{selectedChapter + 1} / {chapters.length}</strong></div>
-        <nav className="mission-console__minimap" aria-label="Minimap checkpoints" style={{ backgroundImage: `url("${landscapeArt[world.landscape]}")` }}>
+        <div className="mission-console__top"><span>MISSION LOG</span><strong>{fieldSelected ? 'SIDE TRAIL' : `${selectedChapter + 1} / ${chapters.length}`}</strong></div>
+        <nav className="mission-console__minimap" aria-label="Minimap checkpoints" style={{ backgroundImage: `url("${landscapeArt[world.landscape]}")` }} onKeyDown={moveInMinimap}>
           <span>MINIMAP</span>
-          <svg viewBox="0 0 1200 820" preserveAspectRatio="none" aria-hidden="true"><path d={routePath} /></svg>
+          <svg viewBox={`0 0 ${mapWidth} ${mapHeight}`} preserveAspectRatio="none" aria-hidden="true"><path d={routePath} /><path d={branchPath} className="minimap__branch" /></svg>
           {chapters.map((stops, index) => {
             const completed = stops.every((stop) => progress.topics[stop.id]?.completed)
-            const { x, y } = chapterPositions[index]
+            const [title, x, y] = checkpoints[index]
             return <button
               key={index}
               className={completed ? 'is-complete' : undefined}
               style={mapPoint(x, y)}
-              onClick={() => selectChapter(index, true)}
-              aria-label={`Open ${chapterTitles[index]}${completed ? ', cleared' : ''}`}
-              aria-pressed={selectedChapter === index}
+              onClick={() => selectStop(index, true)}
+              aria-label={`Open ${title}${completed ? ', cleared' : ''}`}
+              aria-pressed={selection === index}
             >{completed ? '✓' : index + 1}</button>
           })}
+          <button className={`minimap__relic ${fieldDone ? 'is-complete' : ''}`} style={mapPoint(...mission.position)} onClick={() => selectStop('field', true)} aria-label={`Open ${mission.object}${fieldDone ? ', cleared' : ''}`} aria-pressed={fieldSelected}>
+            {fieldDone ? '✓' : <RelicSprite pixels={mission.sprite} />}
+          </button>
         </nav>
         <div className="mission-console__summary" aria-live="polite">
-          <h3>{chapterTitles[selectedChapter]}</h3>
-          <p>{selectedDone} of {selectedStops.length} missions cleared.</p>
+          <h3>{fieldSelected ? mission.title : checkpoints[selectedChapter][0]}</h3>
+          <p>{fieldSelected ? (fieldDone ? 'Side mission cleared.' : 'Optional · Two questions') : `${selectedDone} of ${selectedStops.length} missions cleared.`}</p>
         </div>
-        <div className="mission-console__list">
+        {fieldSelected ? <div className="mission-console__side">
+          <p>{mission.briefing}</p>
+          <small lang="es">{mission.spanishBriefing}</small>
+        </div> : <div className="mission-console__list">
           {selectedStops.map((stop, index) => {
             const complete = Boolean(progress.topics[stop.id]?.completed)
             const current = stop.id === world.stops[currentIndex]?.id
@@ -153,23 +198,32 @@ function WorldMap({ world, progress, go, onTravel }: { world: LearningWorld; pro
               <small>{complete ? 'Cleared' : current ? 'Next objective' : labelForStop(stop)}</small>
             </button>
           })}
-        </div>
-        <button className="mission-console__continue" onClick={() => go(world.stops[Math.max(0, currentIndex)].route)}>{currentIndex === -1 ? 'Replay a mission' : 'Resume next mission'} <span aria-hidden="true">→</span></button>
-        <p className="mission-console__tip" role="status">{mapMessage}</p>
+        </div>}
+        {fieldSelected
+          ? <button className="mission-console__continue" onClick={() => go(fieldMissionRoute(world.id))}>{fieldDone ? 'Replay side mission' : 'Start side mission'} <span aria-hidden="true">→</span></button>
+          : <button className="mission-console__continue" onClick={() => go(world.stops[Math.max(0, currentIndex)].route)}>{currentIndex === -1 ? 'Replay a mission' : 'Resume next mission'} <span aria-hidden="true">→</span></button>}
+        <p className="mission-console__tip" role="status">{signRead ? mission.hint : mapMessage}</p>
       </aside>
     </div>
     <div className="world-underbar world-underbar--game"><div className="world-underbar__actions">{world.id === 'viaje-en-el-tiempo' && <button onClick={() => go('#/tenses')}>Open tense matrix →</button>}<button onClick={onTravel}>Open world map</button></div></div>
   </section>
 }
 
-export function AdventureHome({ selectedWorld, progress, go }: { selectedWorld?: string; progress: ProgressRecord; go: Go }) {
+export function AdventureHome({ selectedWorld, progress, go, showField = false }: { selectedWorld?: string; progress: ProgressRecord; go: Go; showField?: boolean }) {
   const world = findWorld(selectedWorld ?? '') ?? worlds[0]
   const [atlasOpen, setAtlasOpen] = useState(false)
+  const arrivingAt = useRef<string | null>(null)
+  useEffect(() => {
+    if (atlasOpen || showField || arrivingAt.current !== world.id) return
+    arrivingAt.current = null
+    document.getElementById('world-title')?.focus({ preventScroll: true })
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [atlasOpen, showField, world.id])
   const totalStops = worlds.reduce((count, entry) => count + entry.stops.length, 0)
   const totalDone = worlds.flatMap((entry) => entry.stops).filter((stop) => progress.topics[stop.id]?.completed).length
+  const fieldsDone = worlds.filter((entry) => progress.topics[fieldMissionId(entry.id)]?.completed).length
   const currentIndex = world.stops.findIndex((stop) => !progress.topics[stop.id]?.completed)
   const currentStop = world.stops[Math.max(0, currentIndex)]
-  const copy = worldCopy[world.id]
   return <main className="adventure-home adventure-home--game">
     <section className="adventure-intro adventure-intro--game">
       <div className="adventure-intro__body">
@@ -187,10 +241,30 @@ export function AdventureHome({ selectedWorld, progress, go }: { selectedWorld?:
         <strong>{totalDone}<span> / {totalStops}</span></strong>
         <small>missions practised</small>
         <div><i style={{ transform: `scaleX(${totalDone / totalStops})` }} /></div>
+        <small className="adventure-intro__side-count">{fieldsDone}/{worlds.length} side missions</small>
       </div>
     </section>
-    {atlasOpen && <section id="world-atlas" className="world-atlas" aria-label="World map"><div className="world-atlas__heading"><div><h2>Pick a world</h2><p>You can visit any world.</p></div><button onClick={() => setAtlasOpen(false)} aria-label="Close world map">×</button></div><div className="world-atlas__grid">{worlds.map((entry, index) => { const completed = entry.stops.filter((stop) => progress.topics[stop.id]?.completed).length; const entryCopy = worldCopy[entry.id]; return <button key={entry.id} className={world.id === entry.id ? 'is-active' : ''} aria-current={world.id === entry.id ? 'true' : undefined} onClick={() => { go(`#/?world=${entry.id}`); setAtlasOpen(false) }}><img src={landscapeArt[entry.landscape]} alt="" aria-hidden="true" /><span><small>WORLD {String(index + 1).padStart(2, '0')}</small><strong>{entryCopy.name}</strong><em>{completed}/{entry.stops.length} missions</em></span></button> })}</div></section>}
-    <WorldMap key={world.id} world={world} progress={progress} go={go} onTravel={() => {
+    {atlasOpen && <section id="world-atlas" className="world-atlas" aria-label="World map">
+      <div className="world-atlas__heading"><div><h2>World atlas</h2><p>Follow the route or pick any world.</p></div><button onClick={() => setAtlasOpen(false)} aria-label="Close world map">×</button></div>
+      <div className="world-atlas__grid">
+        <svg className="world-atlas__route" viewBox="0 0 300 300" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M50 48 H250 V150 H50 V252 H250" />
+        </svg>
+        {worlds.map((entry, index) => {
+        const completed = entry.stops.filter((stop) => progress.topics[stop.id]?.completed).length
+        const fieldDone = progress.topics[fieldMissionId(entry.id)]?.completed
+        const position = { '--atlas-row': Math.floor(index / 3) + 1, '--atlas-column': atlasColumns[index] } as CSSProperties
+        return <button key={entry.id} className={world.id === entry.id ? 'is-active' : ''} aria-current={world.id === entry.id ? 'true' : undefined} style={position} onClick={() => {
+          arrivingAt.current = entry.id
+          go(`#/?world=${entry.id}`)
+          setAtlasOpen(false)
+        }}>
+          <img src={landscapeArt[entry.landscape]} alt="" loading="lazy" />
+          <span><small>WORLD {String(index + 1).padStart(2, '0')}</small><strong>{displayWorldName(entry)}</strong><em>{completed}/{entry.stops.length} missions{fieldDone ? ' · Side mission cleared' : ''}</em></span>
+        </button>
+      })}</div>
+    </section>}
+    <WorldMap key={`${world.id}:${showField}`} world={world} progress={progress} go={go} showField={showField} onTravel={() => {
       setAtlasOpen(true)
       window.scrollTo({ top: 0, behavior: 'instant' })
     }} />
@@ -202,6 +276,68 @@ const normalized = (value: string) => value.toLowerCase().trim()
 
 function CompletionBurst({ label = 'Mission cleared' }: { label?: string }) {
   return <div className="completion-burst" aria-label={label} role="status"><span aria-hidden="true">✦</span><span aria-hidden="true">✦</span><span aria-hidden="true">✦</span><strong>{label}</strong></div>
+}
+
+export function WorldFieldMission({ world, progress, onAttempt, go }: { world: LearningWorld; progress: ProgressRecord; onAttempt: RecordAttempt; go: Go }) {
+  const { mission, color } = worldTrails[world.id]
+  const id = fieldMissionId(world.id)
+  const [step, setStep] = useState(0)
+  const [selected, setSelected] = useState<number | null>(null)
+  const question = mission.questions[step]
+  const correct = selected === question?.answer
+  const finished = step === mission.questions.length
+  const backRoute = `#/?world=${world.id}&view=field`
+  const questionHeading = useRef<HTMLHeadingElement>(null)
+
+  function answer(index: number) {
+    setSelected(index)
+    if (index !== question.answer) onAttempt(id, false)
+  }
+
+  function advance() {
+    if (step + 1 === mission.questions.length) onAttempt(id, true)
+    setSelected(null)
+    setStep(step + 1)
+    requestAnimationFrame(() => questionHeading.current?.focus())
+  }
+
+  return <main className="adventure-page field-page" style={{ '--trail-color': color } as CSSProperties}>
+    <button className="adventure-back" onClick={() => go(backRoute)}>← Back to {displayWorldName(world)}</button>
+    <div className="practice-layout">
+      <section className="practice-main">
+        <div className="field-page__item"><RelicSprite pixels={mission.sprite} /><span className="adventure-tag">Side mission · {displayWorldName(world)}</span></div>
+        <h1>{mission.title}</h1>
+        <p>{mission.briefing}</p>
+        <small className="es-subtitle" lang="es">{mission.spanishBriefing}</small>
+        {finished ? <section className="practice-question">
+          <h2 ref={questionHeading} tabIndex={-1}>Both questions answered</h2>
+          <CompletionBurst label="Side mission cleared" />
+          <p>{mission.object} is marked as cleared on your map.</p>
+          <button className="quest-primary" onClick={() => go(backRoute)}>Return to the trail →</button>
+        </section> : <section className="practice-question">
+          <span className="adventure-tag">Question {step + 1} of {mission.questions.length}</span>
+          <h2 ref={questionHeading} tabIndex={-1}>{question.prompt}</h2>
+          <div className="practice-choices">{question.options.map((option, index) => <button key={option} disabled={selected !== null} className={selected === index ? (correct ? 'correct' : 'wrong') : undefined} onClick={() => answer(index)}>{option}</button>)}</div>
+          {selected !== null && <div className="practice-feedback">
+            <p role="status">{correct ? question.feedback : 'Try again. The guide’s hint can help.'}</p>
+            {correct
+              ? <button onClick={advance}>{step + 1 === mission.questions.length ? 'Complete mission' : 'Next question →'}</button>
+              : <button onClick={() => {
+                setSelected(null)
+                questionHeading.current?.focus()
+              }}>Try again</button>}
+          </div>}
+        </section>}
+      </section>
+      <aside className="practice-aside">
+        <img src={teacher} alt="GramLab guide" />
+        <h2>Guide’s hint</h2>
+        <p>{mission.hint}</p>
+        <button onClick={() => go(`#/topic/${mission.reference}`)}>Open grammar note →</button>
+        {!finished && progress.topics[id]?.completed && <small>You cleared this side mission before.</small>}
+      </aside>
+    </div>
+  </main>
 }
 
 export function VerbPractice({ verbId, progress, onAttempt, go }: { verbId: string; progress: ProgressRecord; onAttempt: RecordAttempt; go: Go }) {

@@ -5,7 +5,7 @@ import { contentIssues } from './data/integrity'
 import { irregularVerbs } from './data/verbs'
 import { useProgress } from './hooks/useProgress'
 import { useTheme } from './hooks/useTheme'
-import { AdventureHome, ReviewPage, VerbPractice, WorldChallenge, WorldReview } from './AdventureMap'
+import { AdventureHome, ReviewPage, VerbPractice, WorldChallenge, WorldFieldMission, WorldReview } from './AdventureMap'
 import { findWorld, worlds, type LearningWorld } from './data/worlds'
 import presentSimpleVisual from './assets/ejemplo-presente-simple.png'
 import prepositionsVisual from './assets/ejemplo-preposiciones.png'
@@ -275,15 +275,22 @@ function App() {
   const item = topicId ? findItem(topicId) : undefined
   const missionWorld = route.params.get('world') ? findWorld(route.params.get('world')!) : undefined
   const worldReviewMatch = route.path.match(/^\/world\/([^/]+)\/review\/([^/]+)$/)
+  const fieldMatch = route.path.match(/^\/world\/([^/]+)\/field$/)
 
   let content
-  if (route.path === '/') content = <AdventureHome selectedWorld={route.params.get('world') ?? undefined} progress={progress} go={go} />
+  if (route.path === '/') content = <AdventureHome selectedWorld={route.params.get('world') ?? undefined} showField={route.params.get('view') === 'field'} progress={progress} go={go} />
   else if (route.path === '/library') content = <Library go={go} selectedCategory={route.params.get('category') ?? undefined} />
   else if (route.path === '/tenses') content = <main className="page-shell tense-page"><button className="back-button" onClick={() => go('#/?world=viaje-en-el-tiempo')}>← Time Dunes</button><TenseMatrix go={go} /></main>
   else if (route.path === '/verbs') content = <VerbDictionary selectedId={route.params.get('verb') ?? undefined} go={go} />
   else if (route.path === '/review') content = <ReviewPage progress={progress} go={go} />
   else if (route.path.startsWith('/practice/verb/')) { const verbId = decodeURIComponent(route.path.replace('/practice/verb/', '')); content = worlds.some((world) => world.stops.some((stop) => stop.id === `verb:${verbId}`)) ? <VerbPractice key={verbId} verbId={verbId} progress={progress} onAttempt={recordAttempt} go={go} /> : <NotFound go={go} /> }
   else if (worldReviewMatch) { const worldId = decodeURIComponent(worldReviewMatch[1]); const reviewId = decodeURIComponent(worldReviewMatch[2]); content = findWorld(worldId)?.stops.some((stop) => stop.id === `review:${worldId}:${reviewId}`) ? <WorldReview key={`${worldId}:${reviewId}`} worldId={worldId} topicId={reviewId} progress={progress} onAttempt={recordAttempt} go={go} /> : <NotFound go={go} /> }
+  else if (fieldMatch) {
+    const world = findWorld(fieldMatch[1])
+    content = world
+      ? <WorldFieldMission key={world.id} world={world} progress={progress} onAttempt={recordAttempt} go={go} />
+      : <NotFound go={go} />
+  }
   else if (route.path.startsWith('/world/') && route.path.endsWith('/challenge')) { const worldId = decodeURIComponent(route.path.slice('/world/'.length, -'/challenge'.length)); content = findWorld(worldId) ? <WorldChallenge key={worldId} worldId={worldId} progress={progress} onAttempt={recordAttempt} go={go} /> : <NotFound go={go} /> }
   else if (route.path === '/data') content = <DataPage completed={worlds.flatMap((world) => world.stops).filter((stop) => progress.topics[stop.id]?.completed).length} attempts={summary.attempts} noteCount={summary.notes} exportProgress={exportProgress} importProgress={importProgress} resetProgress={resetProgress} />
   else if (item) content = <TopicPage item={item} sectionId={route.params.get('section') ?? undefined} go={go} note={progress.notes[item.id]?.text ?? ''} saveNote={saveNote} onAttempt={recordAttempt} missionWorld={missionWorld?.stops.some((stop) => stop.kind === 'lesson' && stop.id === item.id) ? missionWorld : undefined} completed={Boolean(progress.topics[item.id]?.completed)} />
